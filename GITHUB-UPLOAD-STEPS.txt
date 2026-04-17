@@ -1,0 +1,29 @@
+Visitor Island Monitor GitHub Upload Steps
+
+This folder already contains a hidden file named .gitignore.
+That file keeps live data files out of GitHub.
+
+Ignored files:
+- visitor_island_monitor.sqlite3
+- records.json
+- users.json
+- audit_log.json
+- log/
+
+How to upload this app to GitHub:
+
+1. Create a new empty repository on GitHub.
+2. Open Terminal in this folder:
+   /Users/outte/Library/Mobile Documents/com~apple~CloudDocs/Downloads/visitor-headcount-app/network-shared-app
+3. Run:
+
+git init
+git add .
+git commit -m "Initial Visitor Island Monitor app"
+git branch -M main
+git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git
+git push -u origin main
+
+Important:
+- Upload only this network-shared-app folder as the repo.
+- Do not upload the live database or JSON data files.

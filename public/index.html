@@ -1,0 +1,1052 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visitor Island Monitor Shared</title>
+    <style>
+      :root {
+        --bg: #f4efe6;
+        --panel: rgba(255, 251, 245, 0.94);
+        --panel-strong: #fffdf8;
+        --ink: #1f2a2a;
+        --muted: #607070;
+        --line: rgba(31, 42, 42, 0.12);
+        --accent: #0f766e;
+        --danger: #b42318;
+        --shadow: 0 24px 64px rgba(31, 42, 42, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 28%),
+          radial-gradient(circle at top right, rgba(221, 138, 0, 0.16), transparent 22%),
+          linear-gradient(180deg, #f7f2e8 0%, #efe6da 100%);
+      }
+      .app { width: min(1240px, calc(100% - 28px)); margin: 0 auto; padding: 24px 0 48px; }
+      .hero, .panel, .card {
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+        border-radius: 24px;
+      }
+      .hidden { display: none !important; }
+      .hero { padding: 28px; margin-bottom: 18px; }
+      .hero-top { display: flex; justify-content: space-between; gap: 16px; align-items: start; flex-wrap: wrap; }
+      .eyebrow { margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.12em; font-size: .78rem; color: var(--accent); }
+      h1, h2, h3 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
+      h1 { font-size: clamp(2.2rem, 5vw, 4rem); line-height: .95; max-width: 11ch; }
+      .hero-copy, .small { color: var(--muted); line-height: 1.6; }
+      .hero-copy { max-width: 70ch; margin-top: 12px; }
+      .session-bar { display: grid; gap: 10px; justify-items: end; min-width: 220px; }
+      .session-chip { display: inline-flex; gap: 8px; align-items: center; padding: 10px 14px; border-radius: 999px; background: var(--panel-strong); border: 1px solid var(--line); color: var(--muted); }
+      .session-chip strong { color: var(--ink); }
+      .current-day-banner { margin-top: 18px; display: inline-flex; gap: 10px; padding: 12px 16px; border-radius: 18px; background: var(--panel-strong); border: 1px solid var(--line); }
+      .view-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+      .view-tab { background: white; color: var(--ink); border: 1px solid var(--line); }
+      .view-tab.active { background: var(--accent); color: white; border-color: transparent; }
+      .view-section { display: block; }
+      .view-section.hidden { display: none; }
+      .cards { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+      .card { padding: 18px; }
+      .card h3 { font-size: .95rem; color: var(--muted); margin-bottom: 10px; }
+      .card strong { display: block; font-size: clamp(1.7rem, 3vw, 2.6rem); }
+      .card span { display: block; margin-top: 8px; color: var(--muted); }
+      .topbar, .summary-grid, .filters, .form-grid, .panel-head, .button-row { display: grid; gap: 14px; }
+      .topbar { grid-template-columns: 1.25fr 1fr; margin-bottom: 18px; }
+      .panel { padding: 22px; margin-bottom: 18px; }
+      .panel-head { grid-template-columns: 1fr auto; align-items: end; margin-bottom: 18px; }
+      .button-row { grid-auto-flow: column; justify-content: start; }
+      .form-intro {
+        margin: 0 0 18px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: var(--panel-strong);
+        border: 1px solid var(--line);
+        color: var(--muted);
+      }
+      .form-section {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        background: rgba(255, 253, 248, 0.72);
+      }
+      .form-section + .form-section {
+        margin-top: 14px;
+      }
+      .form-section-title {
+        margin: 0;
+        font-size: .82rem;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      button, input, select, textarea { font: inherit; }
+      button { border: 0; border-radius: 999px; padding: 12px 18px; cursor: pointer; background: var(--accent); color: white; }
+      button.secondary { background: white; color: var(--ink); border: 1px solid var(--line); }
+      button.warn { background: var(--danger); }
+      input, select, textarea {
+        width: 100%; border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; background: var(--panel-strong); color: var(--ink);
+      }
+      textarea { min-height: 88px; resize: vertical; }
+      label { display: grid; gap: 8px; color: var(--muted); font-size: .92rem; align-content: start; }
+      label > span { font-weight: 600; color: #516060; }
+      .form-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .span-2 { grid-column: span 2; }
+      .full-row { grid-column: 1 / -1; }
+      .form-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      .helper-note {
+        margin: 0;
+        color: var(--muted);
+        font-size: .9rem;
+      }
+      .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .summary-box { padding: 18px; border-radius: 20px; background: var(--panel-strong); border: 1px solid var(--line); }
+      .summary-list { display: grid; gap: 8px; margin-top: 12px; }
+      .summary-row { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); }
+      .summary-row strong { color: var(--ink); }
+      .filters { grid-template-columns: 1fr 170px 170px 170px 170px; }
+      .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 18px; max-height: 680px; }
+      table { width: 100%; border-collapse: collapse; background: white; }
+      th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: .94rem; vertical-align: top; }
+      th { position: sticky; top: 0; background: #f8f5ef; color: var(--muted); }
+      tbody tr:nth-child(even) { background: #fcfbf8; }
+      .pill { display: inline-flex; padding: 5px 10px; border-radius: 999px; font-size: .8rem; text-transform: capitalize; background: #dbf1ee; color: #0f766e; }
+      .pill.departure { background: #fff0d4; color: #8a5a00; }
+      .actions { display: flex; gap: 8px; }
+      .actions button { padding: 8px 12px; }
+      .empty { padding: 18px; color: var(--muted); }
+      .status { margin-top: 8px; color: var(--muted); }
+      .auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+      .auth-card { width: min(560px, 100%); padding: 28px; }
+      .auth-grid { display: grid; gap: 14px; margin-top: 18px; }
+      @media (max-width: 1100px) { .cards,.topbar,.summary-grid,.filters,.form-grid,.panel-head { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 720px) { .app { width: min(100% - 18px, 1240px); padding-top: 18px; } .cards,.topbar,.summary-grid,.filters,.form-grid,.panel-head { grid-template-columns: 1fr; } .span-2 { grid-column: span 1; } .button-row { grid-auto-flow: row; } }
+    </style>
+  </head>
+  <body>
+    <section class="auth-shell" id="auth-shell">
+      <div class="hero auth-card">
+        <p class="eyebrow">Secure Sign In</p>
+        <h1>Visitor Island Monitor</h1>
+        <p class="hero-copy">Sign in with your user account to enter data, edit records, monitor daily totals, and export reports.</p>
+        <form id="login-form" class="auth-grid">
+          <label><span>Username</span><input id="login-username" autocomplete="username" required /></label>
+          <label><span>Password</span><input id="login-password" type="password" autocomplete="current-password" required /></label>
+          <div class="form-actions">
+            <button type="submit">Sign In</button>
+          </div>
+        </form>
+        <p class="status" id="login-status">Use your assigned account to continue.</p>
+      </div>
+    </section>
+
+    <main class="app hidden" id="app-shell">
+      <section class="hero">
+        <div class="hero-top">
+          <div>
+            <p class="eyebrow">Hosted Web App</p>
+            <h1>Visitor Island Monitor</h1>
+            <p class="hero-copy">Signed-in users share the same live records. The default screen stays on the current date, while history totals and older entries are available through filters.</p>
+          </div>
+          <div class="session-bar">
+            <div class="session-chip"><span>Signed In As</span><strong id="session-user-label"></strong></div>
+            <button type="button" class="secondary" id="logout-button">Sign Out</button>
+          </div>
+        </div>
+        <div class="current-day-banner"><span>Working Date</span><strong id="current-day-label"></strong></div>
+        <div class="view-nav">
+          <button class="view-tab active" type="button" data-view="dashboard">Dashboard</button>
+          <button class="view-tab" type="button" data-view="entry">Enter Data</button>
+          <button class="view-tab" type="button" data-view="edit">Edit Records</button>
+          <button class="view-tab" type="button" data-view="reports">Reports</button>
+        </div>
+        <p class="status" id="server-status">Connecting to shared record store...</p>
+      </section>
+
+      <section class="cards view-section" id="cards" data-view-section="dashboard"></section>
+
+      <div class="topbar view-section hidden" data-view-section="entry">
+        <section class="panel">
+          <div class="panel-head">
+            <div><p class="eyebrow">Entry Form</p><h2 id="form-title">Add New Record</h2></div>
+            <div class="button-row"><button class="secondary" id="cancel-edit">Cancel Edit</button></div>
+          </div>
+          <form id="entry-form" class="form-grid">
+            <div class="form-intro full-row">
+              Fill the main entry fields, then press `Enter` or `Save Record`. Only `Service Jetty Visitors` and `Remarks` are optional.
+            </div>
+
+            <div class="form-section full-row">
+              <p class="form-section-title">Movement Details</p>
+              <div class="form-grid">
+                <label><span>Date</span><input type="date" id="entry-date" required /></label>
+                <label><span>Time (24-hour format)</span><input type="text" id="entry-time" placeholder="14:30" required /></label>
+                <label><span>Movement</span><select id="entry-movement" required><option value="arrival">Arrival</option><option value="departure">Departure</option></select></label>
+                <label><span>Section</span><input id="entry-section" list="section-options" required /><datalist id="section-options"></datalist></label>
+                <label><span>Boat / Transport</span><input id="entry-boat" required /></label>
+              </div>
+            </div>
+
+            <div class="form-section full-row">
+              <p class="form-section-title">Count Entry</p>
+              <div class="form-grid">
+                <label><span>Visitors</span><input type="number" min="0" id="entry-visitors" value="0" required /></label>
+                <label><span>Staffs</span><input type="number" min="0" id="entry-staffs" value="0" required /></label>
+                <label><span>Guests</span><input type="number" min="0" id="entry-guests" value="0" required /></label>
+                <label><span>Event Visitors</span><input type="number" min="0" id="entry-event-visitors" value="0" required /></label>
+                <label><span>Contractors</span><input type="number" min="0" id="entry-contractors" value="0" required /></label>
+                <label><span>Yacht Guests</span><input type="number" min="0" id="entry-yacht-guests" value="0" required /></label>
+                <label><span>F&amp;F</span><input type="number" min="0" id="entry-fnf" value="0" required /></label>
+                <label><span>Service Jetty Visitors</span><input type="number" min="0" id="entry-service-jetty" value="0" /></label>
+                <label><span>Saved By</span><input id="entry-user" readonly required /></label>
+              </div>
+            </div>
+
+            <div class="form-section full-row">
+              <p class="form-section-title">Notes</p>
+              <div class="form-grid">
+                <label class="full-row"><span>Remarks</span><textarea id="entry-remarks"></textarea></label>
+              </div>
+            </div>
+
+            <div class="form-actions full-row">
+              <button type="submit" id="save-button">Save Record</button>
+              <button type="button" class="secondary" id="reset-form">Clear Form</button>
+              <p class="helper-note">Press Enter to save after the required fields are completed.</p>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <section class="panel view-section" data-view-section="dashboard">
+        <div class="summary-grid">
+          <div class="summary-box"><h3>Current Date Status</h3><div class="summary-list" id="status-summary"></div></div>
+          <div class="summary-box"><h3>Selected Date Status</h3><div class="summary-list" id="selected-date-summary"></div></div>
+          <div class="summary-box"><h3>Month / Filter Totals</h3><div class="summary-list" id="filter-summary"></div></div>
+        </div>
+      </section>
+
+      <section class="panel view-section" data-view-section="dashboard" id="user-management-panel">
+        <div class="panel-head">
+          <div><p class="eyebrow">User Management</p><h2>Create Login Users</h2></div>
+        </div>
+        <form id="user-form" class="form-grid">
+          <label><span>Username</span><input id="new-username" required /></label>
+          <label><span>Password</span><input id="new-password" type="password" required /></label>
+          <label><span>Role</span><select id="new-role"><option value="user">User</option><option value="admin">Admin</option></select></label>
+          <div class="form-actions full-row">
+            <button type="submit">Create User</button>
+            <p class="helper-note">Only admin users can create accounts. Passwords should be at least 8 characters.</p>
+          </div>
+        </form>
+        <div class="table-wrap" style="margin-top:14px;">
+          <table>
+            <thead>
+              <tr><th>Username</th><th>Role</th><th>Created</th></tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel view-section" data-view-section="dashboard" id="audit-log-panel">
+        <div class="panel-head">
+          <div><p class="eyebrow">Audit Log</p><h2>Recent Admin History</h2></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>When</th><th>Action</th><th>By</th><th>Target</th><th>Details</th></tr>
+            </thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel view-section hidden" data-view-section="edit">
+        <div class="panel-head"><div><p class="eyebrow">Shared Records</p><h2>Search, Filter, Edit, And Monitor</h2></div></div>
+        <div class="filters">
+          <label>Search<input id="search-input" type="search" placeholder="Date, boat, room, event, note..." /></label>
+          <label>Month<select id="filter-month"><option value="all">All Months</option></select></label>
+          <label>Date<select id="filter-date"><option value="all">All Dates</option></select></label>
+          <label>Section<select id="filter-section"><option value="all">All Sections</option></select></label>
+          <label>Movement<select id="filter-movement"><option value="all">Arrival + Departure</option><option value="arrival">Arrival only</option><option value="departure">Departure only</option></select></label>
+        </div>
+        <p class="small" id="records-count"></p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th><th>Time</th><th>Movement</th><th>Section</th><th>Boat</th><th>Visitors</th><th>Staffs</th><th>Guests</th><th>Event Visitors</th><th>Contractors</th><th>Yacht Guests</th><th>F&amp;F</th><th>S Jetty</th><th>Remarks</th><th>Saved By</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="records-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel view-section hidden" data-view-section="reports">
+        <div class="panel-head">
+          <div><p class="eyebrow">Reports</p><h2>Totals And Export</h2></div>
+          <div class="button-row">
+            <button type="button" id="export-current-date" class="secondary">Export Current Date</button>
+            <button type="button" id="export-current-month" class="secondary">Export Selected Month</button>
+            <button type="button" id="export-visible" class="secondary">Export Visible Records</button>
+          </div>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-box">
+            <h3>Current Date Report</h3>
+            <div class="summary-list" id="report-current-summary"></div>
+          </div>
+          <div class="summary-box">
+            <h3>Monthly Report</h3>
+            <div class="summary-list" id="report-month-summary"></div>
+          </div>
+        </div>
+        <div class="summary-grid" style="margin-top:14px;">
+          <div class="summary-box">
+            <h3>Date Wise Filtered Report</h3>
+            <div class="summary-list" id="report-date-summary"></div>
+          </div>
+          <div class="summary-box">
+            <h3>Filtered Report</h3>
+            <div class="summary-list" id="report-filter-summary"></div>
+          </div>
+        </div>
+        <div class="summary-box" style="margin-top:14px;">
+          <p class="small">Use the same filters from the edit section. The export button downloads the currently visible records as a spreadsheet-friendly CSV file.</p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const cards = document.getElementById("cards");
+      const statusSummary = document.getElementById("status-summary");
+      const selectedDateSummary = document.getElementById("selected-date-summary");
+      const filterSummary = document.getElementById("filter-summary");
+      const reportCurrentSummary = document.getElementById("report-current-summary");
+      const reportMonthSummary = document.getElementById("report-month-summary");
+      const reportDateSummary = document.getElementById("report-date-summary");
+      const reportFilterSummary = document.getElementById("report-filter-summary");
+      const recordsBody = document.getElementById("records-body");
+      const recordsCount = document.getElementById("records-count");
+      const currentDayLabel = document.getElementById("current-day-label");
+      const serverStatus = document.getElementById("server-status");
+      const authShell = document.getElementById("auth-shell");
+      const appShell = document.getElementById("app-shell");
+      const loginForm = document.getElementById("login-form");
+      const loginStatus = document.getElementById("login-status");
+      const logoutButton = document.getElementById("logout-button");
+      const sessionUserLabel = document.getElementById("session-user-label");
+      const userManagementPanel = document.getElementById("user-management-panel");
+      const auditLogPanel = document.getElementById("audit-log-panel");
+      const userForm = document.getElementById("user-form");
+      const usersBody = document.getElementById("users-body");
+      const auditBody = document.getElementById("audit-body");
+      const viewTabs = Array.from(document.querySelectorAll(".view-tab"));
+      const viewSections = Array.from(document.querySelectorAll("[data-view-section]"));
+      const exportVisible = document.getElementById("export-visible");
+      const entryForm = document.getElementById("entry-form");
+      const formTitle = document.getElementById("form-title");
+      const saveButton = document.getElementById("save-button");
+      const cancelEdit = document.getElementById("cancel-edit");
+      const resetFormButton = document.getElementById("reset-form");
+      const filterDate = document.getElementById("filter-date");
+      const filterMonth = document.getElementById("filter-month");
+      const filterSection = document.getElementById("filter-section");
+      const filterMovement = document.getElementById("filter-movement");
+      const searchInput = document.getElementById("search-input");
+      const exportCurrentDate = document.getElementById("export-current-date");
+      const exportCurrentMonth = document.getElementById("export-current-month");
+      const sectionOptions = document.getElementById("section-options");
+      const newUsername = document.getElementById("new-username");
+      const newPassword = document.getElementById("new-password");
+      const newRole = document.getElementById("new-role");
+
+      const fields = {
+        date: document.getElementById("entry-date"),
+        time: document.getElementById("entry-time"),
+        movement: document.getElementById("entry-movement"),
+        section: document.getElementById("entry-section"),
+        boat: document.getElementById("entry-boat"),
+        visitors: document.getElementById("entry-visitors"),
+        staffs: document.getElementById("entry-staffs"),
+        guests: document.getElementById("entry-guests"),
+        eventVisitors: document.getElementById("entry-event-visitors"),
+        contractors: document.getElementById("entry-contractors"),
+        yachtGuests: document.getElementById("entry-yacht-guests"),
+        fnf: document.getElementById("entry-fnf"),
+        serviceJetty: document.getElementById("entry-service-jetty"),
+        remarks: document.getElementById("entry-remarks"),
+        user: document.getElementById("entry-user")
+      };
+
+      let records = [];
+      let editingId = null;
+      let activeView = "dashboard";
+      let currentUser = null;
+      let auditEntries = [];
+
+      const todayIsoDate = () => new Date().toISOString().slice(0, 10);
+      const monthKey = (isoDate) => isoDate ? isoDate.slice(0, 7) : "";
+      const monthLabel = (yyyyMm) => {
+        if (!yyyyMm || yyyyMm === "all") return "All Months";
+        const [year, month] = yyyyMm.split("-");
+        return new Date(Number(year), Number(month) - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+      };
+      const toDisplayDate = (isoDate) => isoDate ? isoDate.split("-").reverse().join(".") : "";
+      const numberValue = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
+      const normalizeTime = (value) => {
+        const match = String(value || "").trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+        return match ? `${String(match[1]).padStart(2, "0")}:${match[2]}` : "";
+      };
+      const summaryRows = (entries) => entries.map(([label, value]) => `<div class="summary-row"><span>${label}</span><strong>${value}</strong></div>`).join("");
+      const isAdmin = () => currentUser && currentUser.role === "admin";
+
+      async function apiFetch(url, options = {}) {
+        const response = await fetch(url, {
+          credentials: "same-origin",
+          ...options,
+          headers: { ...(options.headers || {}) }
+        });
+
+        if (response.status === 401) {
+          setCurrentUser(null);
+          throw new Error("Please sign in to continue.");
+        }
+
+        return response;
+      }
+
+      function setCurrentUser(user) {
+        currentUser = user || null;
+        const signedIn = Boolean(currentUser);
+        authShell.classList.toggle("hidden", signedIn);
+        appShell.classList.toggle("hidden", !signedIn);
+        sessionUserLabel.textContent = currentUser ? `${currentUser.username} (${currentUser.role})` : "";
+        userManagementPanel.classList.toggle("hidden", !isAdmin());
+        auditLogPanel.classList.toggle("hidden", !isAdmin());
+        exportVisible.classList.toggle("hidden", !isAdmin());
+        exportCurrentDate.classList.toggle("hidden", !isAdmin());
+        exportCurrentMonth.classList.toggle("hidden", !isAdmin());
+        fields.user.value = currentUser ? currentUser.username : "";
+      }
+
+      function setActiveView(view) {
+        activeView = view;
+        viewTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === view));
+        viewSections.forEach((section) => {
+          section.classList.toggle("hidden", section.dataset.viewSection !== view);
+        });
+      }
+
+      function totals(pool) {
+        return pool.reduce((acc, record) => {
+          const direction = record.movement === "arrival" ? 1 : -1;
+          acc.visitorArrivals += record.movement === "arrival" ? numberValue(record.visitors) : 0;
+          acc.visitorDepartures += record.movement === "departure" ? numberValue(record.visitors) : 0;
+          acc.visitorsOnIsland += direction * numberValue(record.visitors);
+          acc.staffArrivals += record.movement === "arrival" ? numberValue(record.staffs) : 0;
+          acc.staffDepartures += record.movement === "departure" ? numberValue(record.staffs) : 0;
+          acc.staffsOnIsland += direction * numberValue(record.staffs);
+          acc.guestArrivals += record.movement === "arrival" ? numberValue(record.guests) : 0;
+          acc.guestDepartures += record.movement === "departure" ? numberValue(record.guests) : 0;
+          acc.guestsOnIsland += direction * numberValue(record.guests);
+          acc.eventVisitorArrivals += record.movement === "arrival" ? numberValue(record.eventVisitors) : 0;
+          acc.eventVisitorDepartures += record.movement === "departure" ? numberValue(record.eventVisitors) : 0;
+          acc.eventVisitorsOnIsland += direction * numberValue(record.eventVisitors);
+          acc.contractorArrivals += record.movement === "arrival" ? numberValue(record.contractors) : 0;
+          acc.contractorDepartures += record.movement === "departure" ? numberValue(record.contractors) : 0;
+          acc.yachtGuestArrivals += record.movement === "arrival" ? numberValue(record.yachtGuests) : 0;
+          acc.yachtGuestDepartures += record.movement === "departure" ? numberValue(record.yachtGuests) : 0;
+          acc.fnfArrivals += record.movement === "arrival" ? numberValue(record.fnf) : 0;
+          acc.fnfDepartures += record.movement === "departure" ? numberValue(record.fnf) : 0;
+          acc.serviceJettyVisitors += numberValue(record.serviceJetty);
+          return acc;
+        }, { visitorArrivals:0, visitorDepartures:0, visitorsOnIsland:0, staffArrivals:0, staffDepartures:0, staffsOnIsland:0, guestArrivals:0, guestDepartures:0, guestsOnIsland:0, eventVisitorArrivals:0, eventVisitorDepartures:0, eventVisitorsOnIsland:0, contractorArrivals:0, contractorDepartures:0, yachtGuestArrivals:0, yachtGuestDepartures:0, fnfArrivals:0, fnfDepartures:0, serviceJettyVisitors:0 });
+      }
+
+      function visibleRecords() {
+        const query = searchInput.value.trim().toLowerCase();
+        return records.filter((record) => {
+          const monthOk = filterMonth.value === "all" || monthKey(record.date) === filterMonth.value;
+          const dateOk = filterDate.value === "all" || record.date === filterDate.value;
+          const sectionOk = filterSection.value === "all" || record.section === filterSection.value;
+          const movementOk = filterMovement.value === "all" || record.movement === filterMovement.value;
+          const textOk = !query || [toDisplayDate(record.date), record.time, record.movement, record.section, record.boat, record.remarks, record.user].join(" ").toLowerCase().includes(query);
+          return monthOk && dateOk && sectionOk && movementOk && textOk;
+        });
+      }
+
+      function renderCards() {
+        const today = todayIsoDate();
+        const info = totals(records.filter((record) => record.date === today));
+        currentDayLabel.textContent = toDisplayDate(today);
+        const cardData = [
+          ["Visitor Arrivals", info.visitorArrivals, `for ${toDisplayDate(today)}`],
+          ["Visitor Departures", info.visitorDepartures, `for ${toDisplayDate(today)}`],
+          ["Remaining Visitors", info.visitorsOnIsland, `for ${toDisplayDate(today)}`],
+          ["Staff Arrivals", info.staffArrivals, `for ${toDisplayDate(today)}`],
+          ["Staff Departures", info.staffDepartures, `for ${toDisplayDate(today)}`],
+          ["Service Jetty Visitors", info.serviceJettyVisitors, `for ${toDisplayDate(today)}`],
+          ["Event Visitors On Island", info.eventVisitorsOnIsland, `for ${toDisplayDate(today)}`]
+        ];
+        cards.innerHTML = cardData.map(([title, value, detail]) => `<article class="card"><h3>${title}</h3><strong>${value}</strong><span>${detail}</span></article>`).join("");
+      }
+
+      function renderSummaries() {
+        const today = todayIsoDate();
+        const todayInfo = totals(records.filter((record) => record.date === today));
+        const currentRows = [
+          ["Date", toDisplayDate(today)],
+          ["Visitor arrivals", todayInfo.visitorArrivals],
+          ["Visitor departures", todayInfo.visitorDepartures],
+          ["Visitors remaining", todayInfo.visitorsOnIsland],
+          ["Staff arrivals", todayInfo.staffArrivals],
+          ["Staff departures", todayInfo.staffDepartures],
+          ["Guests on island", todayInfo.guestsOnIsland],
+          ["Event visitors on island", todayInfo.eventVisitorsOnIsland],
+          ["Contractor arrivals", todayInfo.contractorArrivals],
+          ["Contractor departures", todayInfo.contractorDepartures],
+          ["Yacht guest arrivals", todayInfo.yachtGuestArrivals],
+          ["Yacht guest departures", todayInfo.yachtGuestDepartures],
+          ["F&F arrivals", todayInfo.fnfArrivals],
+          ["F&F departures", todayInfo.fnfDepartures]
+        ];
+        statusSummary.innerHTML = summaryRows(currentRows);
+        reportCurrentSummary.innerHTML = summaryRows(currentRows);
+
+        const selectedDatePool = filterDate.value === "all" ? [] : records.filter((record) => record.date === filterDate.value);
+        const selectedDateInfo = totals(selectedDatePool);
+        const selectedDateRows = [
+          ["Selected date", filterDate.value === "all" ? "Choose a date" : toDisplayDate(filterDate.value)],
+          ["Visitor arrivals", selectedDateInfo.visitorArrivals],
+          ["Visitor departures", selectedDateInfo.visitorDepartures],
+          ["Visitors remaining", selectedDateInfo.visitorsOnIsland],
+          ["Staff arrivals", selectedDateInfo.staffArrivals],
+          ["Staff departures", selectedDateInfo.staffDepartures],
+          ["Event visitors on island", selectedDateInfo.eventVisitorsOnIsland],
+          ["Contractor arrivals", selectedDateInfo.contractorArrivals],
+          ["Contractor departures", selectedDateInfo.contractorDepartures]
+        ];
+        selectedDateSummary.innerHTML = summaryRows(selectedDateRows);
+        reportDateSummary.innerHTML = summaryRows(selectedDateRows);
+
+        const filtered = visibleRecords();
+        const filteredInfo = totals(filtered);
+        const label = filterDate.value === "all" ? "All Dates" : toDisplayDate(filterDate.value);
+        const selectedMonth = filterMonth.value === "all" ? monthKey(today) : filterMonth.value;
+        const monthlyPool = records.filter((record) => monthKey(record.date) === selectedMonth);
+        const monthInfo = totals(monthlyPool);
+
+        const filteredRows = [
+          ["Month", monthLabel(selectedMonth)],
+          ["Date filter", label],
+          ["Visitor arrivals", filteredInfo.visitorArrivals],
+          ["Visitor departures", filteredInfo.visitorDepartures],
+          ["Remaining visitors", filteredInfo.visitorsOnIsland],
+          ["Event visitors on island", filteredInfo.eventVisitorsOnIsland],
+          ["Contractor arrivals", filteredInfo.contractorArrivals],
+          ["Contractor departures", filteredInfo.contractorDepartures],
+          ["Yacht guest arrivals", filteredInfo.yachtGuestArrivals],
+          ["Yacht guest departures", filteredInfo.yachtGuestDepartures],
+          ["F&F arrivals", filteredInfo.fnfArrivals],
+          ["F&F departures", filteredInfo.fnfDepartures],
+          ["Service jetty visitors", filteredInfo.serviceJettyVisitors]
+        ];
+        filterSummary.innerHTML = summaryRows(filteredRows);
+        reportFilterSummary.innerHTML = summaryRows(filteredRows);
+
+        reportMonthSummary.innerHTML = summaryRows([
+          ["Month", monthLabel(selectedMonth)],
+          ["Visitor arrivals", monthInfo.visitorArrivals],
+          ["Visitor departures", monthInfo.visitorDepartures],
+          ["Remaining visitors", monthInfo.visitorsOnIsland],
+          ["Event visitor arrivals", monthInfo.eventVisitorArrivals],
+          ["Event visitor departures", monthInfo.eventVisitorDepartures],
+          ["Contractor arrivals", monthInfo.contractorArrivals],
+          ["Contractor departures", monthInfo.contractorDepartures],
+          ["Yacht guest arrivals", monthInfo.yachtGuestArrivals],
+          ["Yacht guest departures", monthInfo.yachtGuestDepartures],
+          ["F&F arrivals", monthInfo.fnfArrivals],
+          ["F&F departures", monthInfo.fnfDepartures]
+        ]);
+      }
+
+      function fillFilterOptions() {
+        const dates = [...new Set(records.map((record) => record.date).filter(Boolean))].sort().reverse();
+        const months = [...new Set(records.map((record) => monthKey(record.date)).filter(Boolean))].sort().reverse();
+        const sections = [...new Set(records.map((record) => record.section).filter(Boolean))].sort();
+        const currentDateValue = filterDate.value;
+        const currentMonthValue = filterMonth.value;
+        const currentSectionValue = filterSection.value;
+        const today = todayIsoDate();
+        const todayMonth = monthKey(today);
+
+        filterMonth.innerHTML = '<option value="all">All Months</option>' + months.map((month) => `<option value="${month}">${monthLabel(month)}</option>`).join("");
+        filterDate.innerHTML = '<option value="all">All Dates</option>' + dates.map((date) => `<option value="${date}">${toDisplayDate(date)}</option>`).join("");
+        filterSection.innerHTML = '<option value="all">All Sections</option>' + sections.map((section) => `<option value="${section}">${section}</option>`).join("");
+        sectionOptions.innerHTML = sections.map((section) => `<option value="${section}"></option>`).join("");
+
+        filterMonth.value = currentMonthValue && (currentMonthValue === "all" || months.includes(currentMonthValue)) ? currentMonthValue : (months.includes(todayMonth) ? todayMonth : "all");
+        filterDate.value = currentDateValue && (currentDateValue === "all" || dates.includes(currentDateValue)) ? currentDateValue : (dates.includes(today) ? today : "all");
+        filterSection.value = currentSectionValue && (currentSectionValue === "all" || sections.includes(currentSectionValue)) ? currentSectionValue : "all";
+      }
+
+      function renderTable() {
+        const visible = visibleRecords();
+        recordsCount.textContent = `${visible.length} records visible`;
+        if (!visible.length) {
+          recordsBody.innerHTML = '<tr><td class="empty" colspan="16">No records match the current filters.</td></tr>';
+          return;
+        }
+        recordsBody.innerHTML = visible.map((record) => `
+          <tr>
+            <td>${toDisplayDate(record.date)}</td>
+            <td>${record.time || ""}</td>
+            <td><span class="pill ${record.movement}">${record.movement}</span></td>
+            <td>${record.section || ""}</td>
+            <td>${record.boat || ""}</td>
+            <td>${record.visitors}</td>
+            <td>${record.staffs}</td>
+            <td>${record.guests}</td>
+            <td>${record.eventVisitors}</td>
+            <td>${record.contractors || 0}</td>
+            <td>${record.yachtGuests || 0}</td>
+            <td>${record.fnf || 0}</td>
+            <td>${record.serviceJetty}</td>
+            <td>${record.remarks || ""}</td>
+            <td>${record.user || ""}</td>
+            <td><div class="actions"><button class="secondary" data-action="edit" data-id="${record.id}">Edit</button>${isAdmin() ? `<button class="warn" data-action="delete" data-id="${record.id}">Delete</button>` : ""}</div></td>
+          </tr>`).join("");
+      }
+
+      function renderUsers(users = []) {
+        if (!isAdmin()) {
+          usersBody.innerHTML = "";
+          return;
+        }
+        if (!users.length) {
+          usersBody.innerHTML = '<tr><td class="empty" colspan="3">No users created yet.</td></tr>';
+          return;
+        }
+        usersBody.innerHTML = users.map((user) => `
+          <tr>
+            <td>${user.username}</td>
+            <td>${user.role}</td>
+            <td>${user.createdAt ? new Date(user.createdAt).toLocaleString() : ""}</td>
+          </tr>
+        `).join("");
+      }
+
+      function formatAuditDetails(entry) {
+        const details = entry.details || {};
+        if (entry.eventType === "user_created") {
+          return `Created ${details.username || entry.targetId} as ${details.role || "user"}`;
+        }
+
+        const source = details.after || details;
+        const parts = [
+          source.date ? `Date ${toDisplayDate(source.date)}` : "",
+          source.time ? `Time ${source.time}` : "",
+          source.section ? `Section ${source.section}` : "",
+          source.boat ? `Boat ${source.boat}` : ""
+        ].filter(Boolean);
+        return parts.join(" | ");
+      }
+
+      function renderAuditLog() {
+        if (!isAdmin()) {
+          auditBody.innerHTML = "";
+          return;
+        }
+        if (!auditEntries.length) {
+          auditBody.innerHTML = '<tr><td class="empty" colspan="5">No audit history yet.</td></tr>';
+          return;
+        }
+        auditBody.innerHTML = auditEntries.map((entry) => `
+          <tr>
+            <td>${entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ""}</td>
+            <td>${String(entry.eventType || "").replaceAll("_", " ")}</td>
+            <td>${entry.actor || ""}</td>
+            <td>${entry.targetType || ""} ${entry.targetId || ""}</td>
+            <td>${formatAuditDetails(entry)}</td>
+          </tr>
+        `).join("");
+      }
+
+      function resetForm() {
+        editingId = null;
+        formTitle.textContent = "Add New Record";
+        saveButton.textContent = "Save Record";
+        entryForm.reset();
+        fields.date.value = todayIsoDate();
+        fields.visitors.value = 0;
+        fields.staffs.value = 0;
+        fields.guests.value = 0;
+        fields.eventVisitors.value = 0;
+        fields.contractors.value = 0;
+        fields.yachtGuests.value = 0;
+        fields.fnf.value = 0;
+        fields.serviceJetty.value = 0;
+        fields.user.value = currentUser ? currentUser.username : "";
+      }
+
+      function validateRequired() {
+        const missing = [];
+        if (!fields.date.value) missing.push("Date");
+        if (!normalizeTime(fields.time.value)) missing.push("Time");
+        if (!fields.movement.value) missing.push("Movement");
+        if (!fields.section.value.trim()) missing.push("Section");
+        if (!fields.boat.value.trim()) missing.push("Boat / Transport");
+        if (fields.visitors.value === "") missing.push("Visitors");
+        if (fields.staffs.value === "") missing.push("Staffs");
+        if (fields.guests.value === "") missing.push("Guests");
+        if (fields.eventVisitors.value === "") missing.push("Event Visitors");
+        if (fields.contractors.value === "") missing.push("Contractors");
+        if (fields.yachtGuests.value === "") missing.push("Yacht Guests");
+        if (fields.fnf.value === "") missing.push("F&F");
+        if (!currentUser) missing.push("Signed In User");
+        return missing;
+      }
+
+      function recordPayload() {
+        return {
+          id: editingId,
+          date: fields.date.value,
+          time: normalizeTime(fields.time.value),
+          movement: fields.movement.value,
+          section: fields.section.value.trim(),
+          boat: fields.boat.value.trim(),
+          visitors: numberValue(fields.visitors.value),
+          staffs: numberValue(fields.staffs.value),
+          guests: numberValue(fields.guests.value),
+          eventVisitors: numberValue(fields.eventVisitors.value),
+          contractors: numberValue(fields.contractors.value),
+          yachtGuests: numberValue(fields.yachtGuests.value),
+          fnf: numberValue(fields.fnf.value),
+          serviceJetty: numberValue(fields.serviceJetty.value),
+          remarks: fields.remarks.value.trim(),
+          user: currentUser ? currentUser.username : ""
+        };
+      }
+
+      async function loadRecords() {
+        const response = await apiFetch("/api/records");
+        if (!response.ok) throw new Error("Failed to load records");
+        records = await response.json();
+        serverStatus.textContent = "Connected to shared server";
+      }
+
+      async function loadUsers() {
+        if (!isAdmin()) {
+          renderUsers([]);
+          return;
+        }
+        const response = await apiFetch("/api/users");
+        if (!response.ok) throw new Error("Failed to load users");
+        renderUsers(await response.json());
+      }
+
+      async function loadAuditLog() {
+        if (!isAdmin()) {
+          auditEntries = [];
+          renderAuditLog();
+          return;
+        }
+        const response = await apiFetch("/api/audit-log");
+        if (!response.ok) throw new Error("Failed to load audit log");
+        auditEntries = await response.json();
+        renderAuditLog();
+      }
+
+      async function saveRecord(payload) {
+        const url = editingId ? `/api/record/${editingId}` : "/api/records";
+        const method = editingId ? "PUT" : "POST";
+        const response = await apiFetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (!response.ok) throw new Error(await response.text());
+      }
+
+      async function createUser(payload) {
+        const response = await apiFetch("/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+      }
+
+      async function deleteRecord(id) {
+        const response = await apiFetch(`/api/record/${id}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("Delete failed");
+      }
+
+      async function loadSession() {
+        const response = await apiFetch("/api/session");
+        if (!response.ok) throw new Error("Not signed in");
+        const payload = await response.json();
+        setCurrentUser(payload.user);
+      }
+
+      function editRecord(id) {
+        const record = records.find((item) => item.id === id);
+        if (!record) return;
+        editingId = id;
+        formTitle.textContent = "Edit Record";
+        saveButton.textContent = "Update Record";
+        fields.date.value = record.date || "";
+        fields.time.value = record.time || "";
+        fields.movement.value = record.movement || "arrival";
+        fields.section.value = record.section || "";
+        fields.boat.value = record.boat || "";
+        fields.visitors.value = record.visitors || 0;
+        fields.staffs.value = record.staffs || 0;
+        fields.guests.value = record.guests || 0;
+        fields.eventVisitors.value = record.eventVisitors || 0;
+        fields.contractors.value = record.contractors || 0;
+        fields.yachtGuests.value = record.yachtGuests || 0;
+        fields.fnf.value = record.fnf || 0;
+        fields.serviceJetty.value = record.serviceJetty || 0;
+        fields.remarks.value = record.remarks || "";
+        fields.user.value = currentUser ? currentUser.username : "";
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function refreshView() {
+        fillFilterOptions();
+        renderCards();
+        renderSummaries();
+        renderTable();
+        setActiveView(activeView);
+      }
+
+      function csvSummaryBlock(title, entries) {
+        return [[title], ...entries.map(([label, value]) => [label, value]), []];
+      }
+
+      function downloadCsvContent(filename, csvContent) {
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function currentFilters() {
+        return {
+          month: filterMonth.value,
+          date: filterDate.value,
+          section: filterSection.value,
+          movement: filterMovement.value,
+          query: searchInput.value.trim()
+        };
+      }
+
+      async function requestServerExport(scope) {
+        const response = await apiFetch("/api/admin/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scope,
+            today: todayIsoDate(),
+            filters: currentFilters()
+          })
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Export failed");
+        downloadCsvContent(payload.filename, payload.csv);
+      }
+
+      async function exportVisibleRecords() {
+        if (!isAdmin()) {
+          alert("Only admin users can export data.");
+          return;
+        }
+        try {
+          await requestServerExport("visible");
+        } catch (error) {
+          alert(`Export failed: ${error.message}`);
+        }
+      }
+
+      async function exportCurrentDateRecords() {
+        if (!isAdmin()) {
+          alert("Only admin users can export data.");
+          return;
+        }
+        try {
+          await requestServerExport("current_date");
+        } catch (error) {
+          alert(`Export failed: ${error.message}`);
+        }
+      }
+
+      async function exportCurrentMonthRecords() {
+        if (!isAdmin()) {
+          alert("Only admin users can export data.");
+          return;
+        }
+        try {
+          await requestServerExport("current_month");
+        } catch (error) {
+          alert(`Export failed: ${error.message}`);
+        }
+      }
+
+      entryForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const missing = validateRequired();
+        if (missing.length) {
+          alert(`Please fill all required fields before saving. Optional fields are Service Jetty Visitors and Remarks.\n\nMissing: ${missing.join(", ")}`);
+          return;
+        }
+        try {
+          await saveRecord(recordPayload());
+          await loadRecords();
+          resetForm();
+          refreshView();
+        } catch (error) {
+          alert(`Save failed: ${error.message}`);
+        }
+      });
+
+      entryForm.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && event.target.tagName !== "TEXTAREA") {
+          event.preventDefault();
+          entryForm.requestSubmit();
+        }
+      });
+
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        loginStatus.textContent = "Signing in...";
+        try {
+          const response = await fetch("/api/login", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: document.getElementById("login-username").value.trim(),
+              password: document.getElementById("login-password").value
+            })
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || "Sign in failed");
+          setCurrentUser(payload.user);
+          await loadRecords();
+          await loadUsers();
+          await loadAuditLog();
+          refreshView();
+          setActiveView("dashboard");
+          loginForm.reset();
+          loginStatus.textContent = "Signed in successfully.";
+        } catch (error) {
+          const fileMode = window.location.protocol === "file:";
+          loginStatus.textContent = fileMode
+            ? "Open this app through the server URL, not by double-clicking the HTML file."
+            : error.message;
+        }
+      });
+
+      logoutButton.addEventListener("click", async () => {
+        try {
+          await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
+        } finally {
+          setCurrentUser(null);
+          records = [];
+          auditEntries = [];
+          renderUsers([]);
+          renderAuditLog();
+          loginStatus.textContent = "Signed out. Please sign in again.";
+        }
+      });
+
+      userForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          await createUser({
+            username: newUsername.value.trim(),
+            password: newPassword.value,
+            role: newRole.value
+          });
+          userForm.reset();
+          newRole.value = "user";
+          await loadUsers();
+          await loadAuditLog();
+          alert("User created successfully.");
+        } catch (error) {
+          alert(`Could not create user: ${error.message}`);
+        }
+      });
+
+      recordsBody.addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-action]");
+        if (!button) return;
+        const { action, id } = button.dataset;
+        if (action === "edit") editRecord(id);
+        if (action === "delete") {
+          if (!confirm("Delete this record?")) return;
+          try {
+            await deleteRecord(id);
+            await loadRecords();
+            await loadAuditLog();
+            refreshView();
+          } catch (error) {
+            alert(`Delete failed: ${error.message}`);
+          }
+        }
+      });
+
+      cancelEdit.addEventListener("click", resetForm);
+      resetFormButton.addEventListener("click", resetForm);
+      [filterMonth, filterDate, filterSection, filterMovement].forEach((element) => element.addEventListener("change", refreshView));
+      searchInput.addEventListener("input", refreshView);
+      exportVisible.addEventListener("click", exportVisibleRecords);
+      exportCurrentDate.addEventListener("click", exportCurrentDateRecords);
+      exportCurrentMonth.addEventListener("click", exportCurrentMonthRecords);
+      viewTabs.forEach((tab) => tab.addEventListener("click", () => setActiveView(tab.dataset.view)));
+
+      async function init() {
+        resetForm();
+        if (window.location.protocol === "file:") {
+          setCurrentUser(null);
+          loginStatus.textContent = "This hosted app must be opened from the server URL, for example http://localhost:4567";
+          serverStatus.textContent = "Server not connected. Start the server first, then open the web address.";
+          return;
+        }
+        try {
+          await loadSession();
+          await loadRecords();
+          await loadUsers();
+          await loadAuditLog();
+          refreshView();
+          setActiveView("dashboard");
+        } catch (error) {
+          setCurrentUser(null);
+          loginStatus.textContent = error.message === "Please sign in to continue."
+            ? "Sign in with your username and password."
+            : `Cannot reach the server: ${error.message}`;
+          serverStatus.textContent = "Server not connected. Start the server and open the app from its web address.";
+        }
+      }
+
+      init();
+    </script>
+  </body>
+</html>
