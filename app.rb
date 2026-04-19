@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "date"
 require "json"
 require "securerandom"
 require "time"
@@ -386,14 +387,14 @@ module VisitorIslandMonitor
     def report_summary(body)
       payload = parse_json_body(body)
       records = sorted_records
-      today = payload["today"].to_s.empty? ? Time.now.strftime("%Y-%m-%d") : payload["today"].to_s
+      today = payload["today"].to_s.empty? ? operational_today : payload["today"].to_s
       filters = normalize_filters(payload["filters"] || {})
 
       filtered = apply_filters(records, filters)
       selected_month = filters["month"] == "all" ? today[0, 7] : filters["month"]
-      current_date_records = records.select { |record| record["date"] == today }
-      selected_date_records = filters["date"] == "all" ? [] : records.select { |record| record["date"] == filters["date"] }
-      month_records = records.select { |record| month_key(record["date"]) == selected_month }
+      current_date_records = records.select { |record| operational_date(record["date"], record["time"]) == today }
+      selected_date_records = filters["date"] == "all" ? [] : records.select { |record| operational_date(record["date"], record["time"]) == filters["date"] }
+      month_records = records.select { |record| month_key(operational_date(record["date"], record["time"])) == selected_month }
 
       json_response(200, {
         currentDate: summary_payload(current_date_records, label: today),
@@ -406,7 +407,7 @@ module VisitorIslandMonitor
     def export_records(body)
       payload = parse_json_body(body)
       records = sorted_records
-      today = payload["today"].to_s.empty? ? Time.now.strftime("%Y-%m-%d") : payload["today"].to_s
+      today = payload["today"].to_s.empty? ? operational_today : payload["today"].to_s
       scope = payload["scope"].to_s
       filters = normalize_filters(payload["filters"] || {})
 
@@ -414,9 +415,9 @@ module VisitorIslandMonitor
       rows =
         case scope
         when "current_date"
-          records.select { |record| record["date"] == today }
+          records.select { |record| operational_date(record["date"], record["time"]) == today }
         when "current_month"
-          records.select { |record| month_key(record["date"]) == selected_month }
+          records.select { |record| month_key(operational_date(record["date"], record["time"])) == selected_month }
         else
           apply_filters(records, filters)
         end
@@ -434,8 +435,8 @@ module VisitorIslandMonitor
             summary_block("Monthly Totals", month_summary_entries(rows, selected_month))
           ]
         else
-          current_rows = records.select { |record| record["date"] == today }
-          month_rows = records.select { |record| month_key(record["date"]) == selected_month }
+          current_rows = records.select { |record| operational_date(record["date"], record["time"]) == today }
+          month_rows = records.select { |record| month_key(operational_date(record["date"], record["time"])) == selected_month }
           [
             summary_block("Current Date Totals", basic_summary_entries(current_rows, today)),
             summary_block("Selected Month Totals", basic_month_entries(month_rows, selected_month)),
@@ -528,15 +529,31 @@ module VisitorIslandMonitor
       stripped.empty? ? fallback : stripped
     end
 
+    def operational_today
+      now = Time.now
+      now -= 86_400 if now.hour < 6
+      now.strftime("%Y-%m-%d")
+    end
+
+    def operational_date(iso_date, time_value)
+      date = Date.iso8601(iso_date.to_s)
+      hour = normalize_time(time_value).split(":").first.to_i
+      date -= 1 if hour < 6
+      date.iso8601
+    rescue Date::Error
+      iso_date.to_s
+    end
+
     def apply_filters(records, filters)
       records.select do |record|
-        month_ok = filters["month"] == "all" || month_key(record["date"]) == filters["month"]
-        date_ok = filters["date"] == "all" || record["date"] == filters["date"]
+        duty_date = operational_date(record["date"], record["time"])
+        month_ok = filters["month"] == "all" || month_key(duty_date) == filters["month"]
+        date_ok = filters["date"] == "all" || duty_date == filters["date"]
         section_ok = filters["section"] == "all" || record["section"] == filters["section"]
         movement_ok = filters["movement"] == "all" || record["movement"] == filters["movement"]
         query = filters["query"]
         text_ok = query.empty? || [
-          display_date(record["date"]),
+          display_date(duty_date),
           record["time"],
           record["movement"],
           record["section"],
@@ -675,7 +692,7 @@ module VisitorIslandMonitor
       end
       row_lines = rows.map do |record|
         [
-          display_date(record["date"]),
+          display_date(operational_date(record["date"], record["time"])),
           record["time"],
           record["movement"],
           record["section"],
@@ -736,10 +753,13 @@ module VisitorIslandMonitor
       missing = required_text.select { |_key, value| value.to_s.strip.empty? }.keys
       raise Error.new("Missing required fields: #{missing.join(', ')}", status: 400) if missing.any?
 
+      normalized_time = normalize_time(payload["time"])
+      normalized_date = operational_date(payload["date"].to_s, normalized_time)
+
       {
         "id" => existing_id || payload["id"] || SecureRandom.uuid,
-        "date" => payload["date"].to_s,
-        "time" => normalize_time(payload["time"]),
+        "date" => normalized_date,
+        "time" => normalized_time,
         "movement" => payload["movement"] == "departure" ? "departure" : "arrival",
         "section" => payload["section"].to_s.strip,
         "boat" => payload["boat"].to_s.strip,

@@ -166,7 +166,16 @@
             <button type="button" class="secondary" id="logout-button">Sign Out</button>
           </div>
         </div>
-        <div class="current-day-banner"><span>Working Date</span><strong id="current-day-label"></strong></div>
+        <div class="current-day-banner">
+          <span>Working Date</span>
+          <strong id="current-day-label"></strong>
+          <label style="display:grid; gap:6px; margin-left:auto; min-width:220px;">
+            <span style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.08em; color:rgba(245, 247, 255, 0.72);">Dashboard Duty Date</span>
+            <select id="dashboard-date-select">
+              <option value="">Current Duty Date</option>
+            </select>
+          </label>
+        </div>
         <div class="view-nav">
           <button class="view-tab active" type="button" data-view="dashboard">Dashboard</button>
           <button class="view-tab" type="button" data-view="entry">Enter Data</button>
@@ -225,7 +234,7 @@
             <div class="form-actions full-row">
               <button type="submit" id="save-button">Save Record</button>
               <button type="button" class="secondary" id="reset-form">Clear Form</button>
-              <p class="helper-note">Press Enter to save after the required fields are completed.</p>
+              <p class="helper-note">Press Enter to save after the required fields are completed. Duty day runs from 06:00 to the next day 05:59, and entries before 06:00 save under the previous duty date.</p>
             </div>
           </form>
         </section>
@@ -345,6 +354,7 @@
       const recordsBody = document.getElementById("records-body");
       const recordsCount = document.getElementById("records-count");
       const currentDayLabel = document.getElementById("current-day-label");
+      const dashboardDateSelect = document.getElementById("dashboard-date-select");
       const serverStatus = document.getElementById("server-status");
       const authShell = document.getElementById("auth-shell");
       const appShell = document.getElementById("app-shell");
@@ -401,7 +411,30 @@
       let currentUser = null;
       let auditEntries = [];
 
-      const todayIsoDate = () => new Date().toISOString().slice(0, 10);
+      const DUTY_DAY_START_HOUR = 6;
+      const parseIsoDate = (isoDate) => {
+        if (!isoDate) return null;
+        const [year, month, day] = String(isoDate).split("-").map(Number);
+        if (!year || !month || !day) return null;
+        return new Date(year, month - 1, day);
+      };
+      const formatIsoDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+      const shiftIsoDate = (isoDate, days) => {
+        const date = parseIsoDate(isoDate);
+        if (!date) return isoDate || "";
+        date.setDate(date.getDate() + days);
+        return formatIsoDate(date);
+      };
+      const todayIsoDate = () => {
+        const now = new Date();
+        if (now.getHours() < DUTY_DAY_START_HOUR) now.setDate(now.getDate() - 1);
+        return formatIsoDate(now);
+      };
       const monthKey = (isoDate) => isoDate ? isoDate.slice(0, 7) : "";
       const monthLabel = (yyyyMm) => {
         if (!yyyyMm || yyyyMm === "all") return "All Months";
@@ -413,6 +446,12 @@
       const normalizeTime = (value) => {
         const match = String(value || "").trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
         return match ? `${String(match[1]).padStart(2, "0")}:${match[2]}` : "";
+      };
+      const operationalDate = (isoDate, timeValue) => {
+        const normalizedTime = normalizeTime(timeValue);
+        if (!isoDate || !normalizedTime) return isoDate || "";
+        const hour = Number(normalizedTime.split(":")[0]);
+        return hour < DUTY_DAY_START_HOUR ? shiftIsoDate(isoDate, -1) : isoDate;
       };
       const summaryRows = (entries) => entries.map(([label, value]) => `<div class="summary-row"><span>${label}</span><strong>${value}</strong></div>`).join("");
       const isAdmin = () => currentUser && currentUser.role === "admin";
@@ -483,36 +522,37 @@
       function visibleRecords() {
         const query = searchInput.value.trim().toLowerCase();
         return records.filter((record) => {
-          const monthOk = filterMonth.value === "all" || monthKey(record.date) === filterMonth.value;
-          const dateOk = filterDate.value === "all" || record.date === filterDate.value;
+          const dutyDate = operationalDate(record.date, record.time);
+          const monthOk = filterMonth.value === "all" || monthKey(dutyDate) === filterMonth.value;
+          const dateOk = filterDate.value === "all" || dutyDate === filterDate.value;
           const sectionOk = filterSection.value === "all" || record.section === filterSection.value;
           const movementOk = filterMovement.value === "all" || record.movement === filterMovement.value;
-          const textOk = !query || [toDisplayDate(record.date), record.time, record.movement, record.section, record.boat, record.remarks, record.user].join(" ").toLowerCase().includes(query);
+          const textOk = !query || [toDisplayDate(dutyDate), record.time, record.movement, record.section, record.boat, record.remarks, record.user].join(" ").toLowerCase().includes(query);
           return monthOk && dateOk && sectionOk && movementOk && textOk;
         });
       }
 
       function renderCards() {
-        const today = todayIsoDate();
-        const info = totals(records.filter((record) => record.date === today));
+        const today = dashboardDateSelect.value || todayIsoDate();
+        const info = totals(records.filter((record) => operationalDate(record.date, record.time) === today));
         currentDayLabel.textContent = toDisplayDate(today);
         const cardData = [
-          ["Visitor Arrivals", info.visitorArrivals, `for ${toDisplayDate(today)}`],
-          ["Visitor Departures", info.visitorDepartures, `for ${toDisplayDate(today)}`],
-          ["Remaining Visitors", info.visitorsOnIsland, `for ${toDisplayDate(today)}`],
-          ["Staff Arrivals", info.staffArrivals, `for ${toDisplayDate(today)}`],
-          ["Staff Departures", info.staffDepartures, `for ${toDisplayDate(today)}`],
-          ["Service Jetty Visitors", info.serviceJettyVisitors, `for ${toDisplayDate(today)}`],
-          ["Event Visitors On Island", info.eventVisitorsOnIsland, `for ${toDisplayDate(today)}`]
+          ["Visitor Arrivals", info.visitorArrivals, `for duty date ${toDisplayDate(today)}`],
+          ["Visitor Departures", info.visitorDepartures, `for duty date ${toDisplayDate(today)}`],
+          ["Remaining Visitors", info.visitorsOnIsland, `for duty date ${toDisplayDate(today)}`],
+          ["Staff Arrivals", info.staffArrivals, `for duty date ${toDisplayDate(today)}`],
+          ["Staff Departures", info.staffDepartures, `for duty date ${toDisplayDate(today)}`],
+          ["Service Jetty Visitors", info.serviceJettyVisitors, `for duty date ${toDisplayDate(today)}`],
+          ["Event Visitors On Island", info.eventVisitorsOnIsland, `for duty date ${toDisplayDate(today)}`]
         ];
         cards.innerHTML = cardData.map(([title, value, detail]) => `<article class="card"><h3>${title}</h3><strong>${value}</strong><span>${detail}</span></article>`).join("");
       }
 
       function renderSummaries() {
-        const today = todayIsoDate();
-        const todayInfo = totals(records.filter((record) => record.date === today));
+        const today = dashboardDateSelect.value || todayIsoDate();
+        const todayInfo = totals(records.filter((record) => operationalDate(record.date, record.time) === today));
         const currentRows = [
-          ["Date", toDisplayDate(today)],
+          ["Duty date", toDisplayDate(today)],
           ["Visitor arrivals", todayInfo.visitorArrivals],
           ["Visitor departures", todayInfo.visitorDepartures],
           ["Visitors remaining", todayInfo.visitorsOnIsland],
@@ -530,10 +570,10 @@
         statusSummary.innerHTML = summaryRows(currentRows);
         reportCurrentSummary.innerHTML = summaryRows(currentRows);
 
-        const selectedDatePool = filterDate.value === "all" ? [] : records.filter((record) => record.date === filterDate.value);
+        const selectedDatePool = filterDate.value === "all" ? [] : records.filter((record) => operationalDate(record.date, record.time) === filterDate.value);
         const selectedDateInfo = totals(selectedDatePool);
         const selectedDateRows = [
-          ["Selected date", filterDate.value === "all" ? "Choose a date" : toDisplayDate(filterDate.value)],
+          ["Selected duty date", filterDate.value === "all" ? "Choose a date" : toDisplayDate(filterDate.value)],
           ["Visitor arrivals", selectedDateInfo.visitorArrivals],
           ["Visitor departures", selectedDateInfo.visitorDepartures],
           ["Visitors remaining", selectedDateInfo.visitorsOnIsland],
@@ -550,12 +590,12 @@
         const filteredInfo = totals(filtered);
         const label = filterDate.value === "all" ? "All Dates" : toDisplayDate(filterDate.value);
         const selectedMonth = filterMonth.value === "all" ? monthKey(today) : filterMonth.value;
-        const monthlyPool = records.filter((record) => monthKey(record.date) === selectedMonth);
+        const monthlyPool = records.filter((record) => monthKey(operationalDate(record.date, record.time)) === selectedMonth);
         const monthInfo = totals(monthlyPool);
 
         const filteredRows = [
           ["Month", monthLabel(selectedMonth)],
-          ["Date filter", label],
+          ["Duty date filter", label],
           ["Visitor arrivals", filteredInfo.visitorArrivals],
           ["Visitor departures", filteredInfo.visitorDepartures],
           ["Remaining visitors", filteredInfo.visitorsOnIsland],
@@ -588,23 +628,26 @@
       }
 
       function fillFilterOptions() {
-        const dates = [...new Set(records.map((record) => record.date).filter(Boolean))].sort().reverse();
-        const months = [...new Set(records.map((record) => monthKey(record.date)).filter(Boolean))].sort().reverse();
+        const dates = [...new Set(records.map((record) => operationalDate(record.date, record.time)).filter(Boolean))].sort().reverse();
+        const months = [...new Set(records.map((record) => monthKey(operationalDate(record.date, record.time))).filter(Boolean))].sort().reverse();
         const sections = [...new Set(records.map((record) => record.section).filter(Boolean))].sort();
         const currentDateValue = filterDate.value;
         const currentMonthValue = filterMonth.value;
         const currentSectionValue = filterSection.value;
+        const currentDashboardDate = dashboardDateSelect.value;
         const today = todayIsoDate();
         const todayMonth = monthKey(today);
 
         filterMonth.innerHTML = '<option value="all">All Months</option>' + months.map((month) => `<option value="${month}">${monthLabel(month)}</option>`).join("");
         filterDate.innerHTML = '<option value="all">All Dates</option>' + dates.map((date) => `<option value="${date}">${toDisplayDate(date)}</option>`).join("");
         filterSection.innerHTML = '<option value="all">All Sections</option>' + sections.map((section) => `<option value="${section}">${section}</option>`).join("");
+        dashboardDateSelect.innerHTML = '<option value="">Current Duty Date</option>' + dates.map((date) => `<option value="${date}">${toDisplayDate(date)}</option>`).join("");
         sectionOptions.innerHTML = sections.map((section) => `<option value="${section}"></option>`).join("");
 
         filterMonth.value = currentMonthValue && (currentMonthValue === "all" || months.includes(currentMonthValue)) ? currentMonthValue : (months.includes(todayMonth) ? todayMonth : "all");
         filterDate.value = currentDateValue && (currentDateValue === "all" || dates.includes(currentDateValue)) ? currentDateValue : (dates.includes(today) ? today : "all");
         filterSection.value = currentSectionValue && (currentSectionValue === "all" || sections.includes(currentSectionValue)) ? currentSectionValue : "all";
+        dashboardDateSelect.value = currentDashboardDate && dates.includes(currentDashboardDate) ? currentDashboardDate : "";
       }
 
       function renderTable() {
@@ -616,7 +659,7 @@
         }
         recordsBody.innerHTML = visible.map((record) => `
           <tr>
-            <td>${toDisplayDate(record.date)}</td>
+            <td>${toDisplayDate(operationalDate(record.date, record.time))}</td>
             <td>${record.time || ""}</td>
             <td><span class="pill ${record.movement}">${record.movement}</span></td>
             <td>${record.section || ""}</td>
@@ -725,10 +768,11 @@
       }
 
       function recordPayload() {
+        const normalizedTime = normalizeTime(fields.time.value);
         return {
           id: editingId,
-          date: fields.date.value,
-          time: normalizeTime(fields.time.value),
+          date: operationalDate(fields.date.value, normalizedTime),
+          time: normalizedTime,
           movement: fields.movement.value,
           section: fields.section.value.trim(),
           boat: fields.boat.value.trim(),
@@ -808,7 +852,7 @@
         editingId = id;
         formTitle.textContent = "Edit Record";
         saveButton.textContent = "Update Record";
-        fields.date.value = record.date || "";
+        fields.date.value = operationalDate(record.date, record.time) || "";
         fields.time.value = record.time || "";
         fields.movement.value = record.movement || "arrival";
         fields.section.value = record.section || "";
@@ -1016,6 +1060,12 @@
       cancelEdit.addEventListener("click", resetForm);
       resetFormButton.addEventListener("click", resetForm);
       [filterMonth, filterDate, filterSection, filterMovement].forEach((element) => element.addEventListener("change", refreshView));
+      dashboardDateSelect.addEventListener("change", () => {
+        if (dashboardDateSelect.value) {
+          filterDate.value = dashboardDateSelect.value;
+        }
+        refreshView();
+      });
       searchInput.addEventListener("input", refreshView);
       exportVisible.addEventListener("click", exportVisibleRecords);
       exportCurrentDate.addEventListener("click", exportCurrentDateRecords);
