@@ -49,7 +49,7 @@ Recommended network share:
   install-backup-schedule.command
 
 Schedule:
-- daily backup: 23:55
+- daily backup: 00:35
 - weekly backup: Sunday 23:58
 - monthly backup: day 1 at 00:10
 

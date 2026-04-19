@@ -47,7 +47,7 @@ create_plist() {
   } > "$plist_path"
 }
 
-create_plist "$PLIST_DIR/com.visitor.monitor.backup.daily.plist" "com.visitor.monitor.backup.daily" "daily" "55" "23" "" ""
+create_plist "$PLIST_DIR/com.visitor.monitor.backup.daily.plist" "com.visitor.monitor.backup.daily" "daily" "35" "0" "" ""
 create_plist "$PLIST_DIR/com.visitor.monitor.backup.weekly.plist" "com.visitor.monitor.backup.weekly" "weekly" "58" "23" "7" ""
 create_plist "$PLIST_DIR/com.visitor.monitor.backup.monthly.plist" "com.visitor.monitor.backup.monthly" "monthly" "10" "0" "" "1"
 
@@ -60,6 +60,6 @@ launchctl load "$PLIST_DIR/com.visitor.monitor.backup.weekly.plist"
 launchctl load "$PLIST_DIR/com.visitor.monitor.backup.monthly.plist"
 
 echo "Backup schedules installed."
-echo "Daily: 23:55"
+echo "Daily: 00:35"
 echo "Weekly: Sunday 23:58"
 echo "Monthly: day 1 at 00:10"
