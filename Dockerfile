@@ -6,7 +6,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends build-essential libsqlite3-dev pkg-config \
   && rm -rf /var/lib/apt/lists/*
 
-COPY Gemfile ./
+COPY Gemfile Gemfile.lock ./
 
 RUN bundle install
 
