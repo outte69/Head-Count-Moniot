@@ -210,6 +210,13 @@ module VisitorIslandMonitor
         raise Error.new("Method not allowed", status: 405)
       end
 
+      if path == "/api/admin/backup-export"
+        require_backup_token!(env)
+        return backup_export(body) if method == "POST"
+
+        raise Error.new("Method not allowed", status: 405)
+      end
+
       raise Error.new("Not found", status: 404)
     end
 
@@ -304,6 +311,15 @@ module VisitorIslandMonitor
     def require_admin!(current_user)
       require_user!(current_user)
       raise Error.new("Admin access is required", status: 403) unless current_user["role"] == "admin"
+    end
+
+    def require_backup_token!(env)
+      expected = ENV["BACKUP_API_TOKEN"].to_s
+      raise Error.new("Backup API token is not configured", status: 503) if expected.empty?
+
+      provided = env["HTTP_X_BACKUP_TOKEN"].to_s
+      raise Error.new("Backup token is required", status: 401) if provided.empty?
+      raise Error.new("Invalid backup token", status: 403) unless provided == expected
     end
 
     def session_status(env)
@@ -460,6 +476,49 @@ module VisitorIslandMonitor
       })
     end
 
+    def backup_export(body)
+      payload = parse_json_body(body)
+      records = sorted_records
+      today = payload["today"].to_s.empty? ? operational_today : payload["today"].to_s
+      scope = payload["scope"].to_s
+
+      rows, filename, summaries =
+        case scope
+        when "daily"
+          selected_rows = records.select { |record| operational_date(record["date"], record["time"]) == today }
+          [
+            selected_rows,
+            "visitor-monitor-daily-#{today}.csv",
+            [summary_block("Daily Totals", summary_entries(selected_rows, label: today))]
+          ]
+        when "weekly"
+          week_key_value = week_key(today)
+          selected_rows = records.select { |record| week_key(operational_date(record["date"], record["time"])) == week_key_value }
+          [
+            selected_rows,
+            "visitor-monitor-weekly-#{week_key_value}.csv",
+            [summary_block("Weekly Totals", week_summary_entries(selected_rows, week_key_value))]
+          ]
+        when "monthly"
+          selected_month = month_key(today)
+          selected_rows = records.select { |record| month_key(operational_date(record["date"], record["time"])) == selected_month }
+          [
+            selected_rows,
+            "visitor-monitor-monthly-#{selected_month}.csv",
+            [summary_block("Monthly Totals", month_summary_entries(selected_rows, selected_month))]
+          ]
+        else
+          raise Error.new("Backup scope must be daily, weekly, or monthly", status: 400)
+        end
+
+      raise Error.new("There are no records to export for this backup", status: 400) if rows.empty?
+
+      json_response(200, {
+        filename: filename,
+        csv: build_csv(rows, summaries)
+      })
+    end
+
     def public_user(user)
       {
         "username" => user["username"],
@@ -570,6 +629,13 @@ module VisitorIslandMonitor
       iso_date.to_s[0, 7]
     end
 
+    def week_key(iso_date)
+      date = Date.iso8601(iso_date.to_s)
+      "#{date.cwyear}-W#{format('%02d', date.cweek)}"
+    rescue Date::Error
+      ""
+    end
+
     def display_date(iso_date)
       return "" if iso_date.to_s.empty?
 
@@ -671,6 +737,24 @@ module VisitorIslandMonitor
         ["Visitors remaining", totals["visitorsOnIsland"]],
         ["Event visitor arrivals", totals["eventVisitorArrivals"]],
         ["Event visitor departures", totals["eventVisitorDepartures"]],
+        ["Yacht guest arrivals", totals["yachtGuestArrivals"]],
+        ["Yacht guest departures", totals["yachtGuestDepartures"]],
+        ["F&F arrivals", totals["fnfArrivals"]],
+        ["F&F departures", totals["fnfDepartures"]]
+      ]
+    end
+
+    def week_summary_entries(rows, week)
+      totals = calculate_totals(rows)
+      [
+        ["Week", week],
+        ["Visitor arrivals", totals["visitorArrivals"]],
+        ["Visitor departures", totals["visitorDepartures"]],
+        ["Visitors remaining", totals["visitorsOnIsland"]],
+        ["Event visitor arrivals", totals["eventVisitorArrivals"]],
+        ["Event visitor departures", totals["eventVisitorDepartures"]],
+        ["Contractor arrivals", totals["contractorArrivals"]],
+        ["Contractor departures", totals["contractorDepartures"]],
         ["Yacht guest arrivals", totals["yachtGuestArrivals"]],
         ["Yacht guest departures", totals["yachtGuestDepartures"]],
         ["F&F arrivals", totals["fnfArrivals"]],

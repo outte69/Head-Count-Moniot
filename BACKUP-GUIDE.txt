@@ -1,0 +1,63 @@
+Visitor Island Monitor Backup Guide
+
+This setup keeps backups in three places:
+- this computer
+- OneDrive
+- the office network share on umar.a / 10.100.10.254
+
+Files added:
+- backup-config.env.example
+- run-scheduled-backup.sh
+- install-backup-schedule.command
+- remove-backup-schedule.command
+
+1. Create a backup token in Railway
+- open Railway
+- open the service Variables
+- add:
+  BACKUP_API_TOKEN=choose-a-long-secret-value
+
+2. Create the local config file
+- copy:
+  backup-config.env.example
+- to:
+  backup-config.env
+
+3. Edit backup-config.env
+- set APP_URL to your live app URL
+- set BACKUP_API_TOKEN to the same secret you added in Railway
+- keep or adjust:
+  LOCAL_BACKUP_DIR
+  ONEDRIVE_BACKUP_DIR
+  NETWORK_BACKUP_DIR
+
+Recommended network share:
+- mount smb://umar.a/VisitorMonitorBackups
+- this usually appears as:
+  /Volumes/VisitorMonitorBackups
+
+4. Test each backup manually
+- daily:
+  ./run-scheduled-backup.sh daily
+- weekly:
+  ./run-scheduled-backup.sh weekly
+- monthly:
+  ./run-scheduled-backup.sh monthly
+
+5. Install the automatic schedule on this admin computer
+- double-click:
+  install-backup-schedule.command
+
+Schedule:
+- daily backup: 23:55
+- weekly backup: Sunday 23:58
+- monthly backup: day 1 at 00:10
+
+Backups are saved into subfolders:
+- Daily
+- Weekly
+- Monthly
+
+6. If you ever want to remove the schedule
+- double-click:
+  remove-backup-schedule.command
