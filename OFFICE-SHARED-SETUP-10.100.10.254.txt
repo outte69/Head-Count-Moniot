@@ -1,0 +1,44 @@
+Visitor Island Monitor
+Office Shared Setup
+Fixed IP: 10.100.10.254
+
+Goal:
+- one office computer runs the app
+- all office computers open the same link
+- all entered data is shared
+
+Shared link for all office computers:
+http://10.100.10.254:4567
+
+Use this on the Windows host computer:
+start-server-no-ruby-10.100.10.254.bat
+
+Background version on the Windows host:
+start-background-no-ruby-10.100.10.254.bat
+
+Important:
+1. The host computer must actually use the IP address 10.100.10.254
+2. The host computer must stay powered on
+3. The server must stay running
+4. All office users must open the same link:
+   http://10.100.10.254:4567
+
+If Windows shows "Access is denied":
+IT may need to allow the listener with:
+
+netsh http add urlacl url=http://10.100.10.254:4567/ user=YOUR-WINDOWS-USERNAME
+
+If Windows Firewall asks:
+- allow private network access for port 4567
+
+What this setup gives:
+- shared records on the office network
+- same URL for all office computers
+- no Ruby needed on Windows
+
+What this setup does not give:
+- internet access from outside the office
+- HTTPS by default
+
+If this office setup does not work because of Windows or IT restrictions,
+use the hosted HTTPS setup instead.

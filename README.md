@@ -33,6 +33,48 @@ For background use on Windows:
 start-background-server.bat
 ```
 
+For Windows without Ruby:
+
+```text
+start-server-no-ruby.bat
+```
+
+For Windows background use without Ruby:
+
+```text
+start-background-no-ruby.bat
+```
+
+For Windows office network sharing without Ruby:
+
+```text
+start-server-no-ruby-network.bat
+```
+
+For Windows office network background sharing without Ruby:
+
+```text
+start-background-no-ruby-network.bat
+```
+
+For the fixed office IP `10.100.10.254` without Ruby:
+
+```text
+start-server-no-ruby-10.100.10.254.bat
+```
+
+For fixed office IP background mode:
+
+```text
+start-background-no-ruby-10.100.10.254.bat
+```
+
+For the simplest one-computer version with no server setup:
+
+```text
+start-standalone-local.bat
+```
+
 On macOS, you can double-click:
 
 ```text
@@ -80,12 +122,26 @@ Or with Rack:
 bundle exec rackup config.ru -p 4567
 ```
 
+For Railway, if automatic Railpack detection fails, this repo now includes:
+
+- `Dockerfile`
+- `start.sh`
+
+Railway can deploy it directly with Docker instead of trying to guess the build plan.
+
 Important environment values:
 
 - `PORT` sets the web port
 - `DATA_FILE` lets you move the shared data file to another folder
 - `DATABASE_PATH` lets you choose where the SQLite database file is stored
 - `APP_ENV` sets the runtime environment
+
+Recommended Railway settings:
+
+- Builder: `Dockerfile`
+- Start command: leave blank if using Dockerfile
+- Volume mount path: `/app/data`
+- Environment variable: `DATABASE_PATH=/app/data/visitor_island_monitor.sqlite3`
 
 ## Login Users
 
@@ -147,6 +203,15 @@ the next step after this would be PostgreSQL.
 - `start-server.bat` now opens `http://localhost:4567` automatically
 - `start-background-server.bat` starts the server in the background so other systems can keep using it after the launcher closes
 - `stop-background-server.bat` stops the Windows background server
+- `start-server-no-ruby.bat` runs the shared app with built-in PowerShell instead of Ruby
+- `start-server-no-ruby.bat` uses localhost only and avoids the Windows access-denied URL reservation problem
+- `start-server-no-ruby-network.bat` is for office sharing on the network and may need IT approval
+- `start-background-no-ruby.bat` keeps the localhost-only PowerShell version running in the background
+- `start-background-no-ruby-network.bat` keeps the office network PowerShell version running in the background
+- `start-server-no-ruby-10.100.10.254.bat` binds the server to the fixed office IP `10.100.10.254`
+- `start-background-no-ruby-10.100.10.254.bat` runs the fixed-IP version in the background
+- `stop-background-no-ruby.bat` stops the PowerShell background server
+- `start-standalone-local.bat` opens the standalone local app directly and avoids server startup problems
 - If `start-server.bat` says Ruby is missing, install Ruby for Windows and make sure it is added to PATH
 
 ## macOS Notes
@@ -166,3 +231,25 @@ the next step after this would be PostgreSQL.
 - For shared use from another system, the host computer must stay powered on and connected to the network
 - With the background launchers, you do not need to keep the launcher window open
 - For hosted use, back up your `visitor_island_monitor.sqlite3` file regularly
+
+## Office Network Without Ruby
+
+For a Windows office setup with IT restrictions, the easiest no-Ruby option is the included PowerShell server:
+
+- `server.ps1`
+- `start-server-no-ruby.bat`
+- `start-server-no-ruby-network.bat`
+- `start-background-no-ruby.bat`
+- `start-background-no-ruby-network.bat`
+- `start-server-no-ruby-10.100.10.254.bat`
+- `start-background-no-ruby-10.100.10.254.bat`
+
+This keeps the same browser app, shared records, users, admin permissions, and audit log structure, but runs on Windows without installing Ruby.
+
+If Windows shows `HttpListenerException` or `Access is denied`, use the localhost-only launcher first. For office network sharing, IT may need to run a URL reservation such as:
+
+```text
+netsh http add urlacl url=http://+:4567/ user=YOUR-WINDOWS-USERNAME
+```
+
+If you only need one-computer use and want the least chance of startup errors, use the standalone local launcher instead of a server.

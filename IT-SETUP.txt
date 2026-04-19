@@ -1,0 +1,47 @@
+Visitor Island Monitor
+Windows Office Network Setup
+
+Purpose:
+This app can run on one Windows office computer and be opened by other computers on the same office network.
+
+No Ruby version:
+The Windows no-Ruby server uses PowerShell and listens on port 4567.
+
+Problem IT may need to fix:
+Windows can block network-wide HTTP listeners with:
+Access is denied
+HttpListenerException
+
+Required IT command:
+Run Command Prompt as Administrator and use:
+
+netsh http add urlacl url=http://+:4567/ user=YOUR-WINDOWS-USERNAME
+
+Replace:
+YOUR-WINDOWS-USERNAME
+with the Windows account that will run the app.
+
+Example:
+netsh http add urlacl url=http://+:4567/ user=officepcuser
+
+If Windows Firewall asks for access:
+- allow Private Network access for port 4567
+
+How users start the app after IT setup:
+- local-only without admin/network sharing:
+  start-server-no-ruby.bat
+- office network sharing:
+  start-server-no-ruby-network.bat
+- office network background mode:
+  start-background-no-ruby-network.bat
+
+App URLs:
+- on the host PC:
+  http://localhost:4567
+- on other office PCs:
+  http://HOST-PC-IP:4567
+
+Important:
+- the host computer must stay powered on
+- the server must stay running
+- shared records are stored in the app folder data files

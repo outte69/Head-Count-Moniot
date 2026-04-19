@@ -1,0 +1,26 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    mini_portile2 (2.8.9)
+    nio4r (2.7.5)
+    puma (6.6.1)
+      nio4r (~> 2.0)
+    rack (2.2.23)
+    sqlite3 (1.6.9)
+      mini_portile2 (~> 2.8.0)
+    webrick (1.9.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  puma (~> 6.4)
+  rack (~> 2.2)
+  sqlite3 (~> 1.6)
+  webrick (~> 1.8)
+
+RUBY VERSION
+   ruby 2.6.10p210
+
+BUNDLED WITH
+   1.17.2

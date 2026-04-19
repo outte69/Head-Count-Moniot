@@ -1,0 +1,27 @@
+Visitor Island Monitor
+Simple Start Options
+
+1. Easiest local option with no server errors
+   Use:
+   start-standalone-local.bat
+
+   This opens the app directly in the browser.
+   It works on one computer only.
+   It does not share live records to other computers.
+
+2. Shared office network option
+   Use:
+   start-server-no-ruby-network.bat
+
+   This is for multiple office computers.
+   It may need IT permission for Windows network access.
+
+3. Safe no-Ruby localhost-only server option
+   Use:
+   start-server-no-ruby.bat
+
+   This opens on the same computer only at:
+   http://localhost:4567
+
+Recommended if you want no errors:
+Use start-standalone-local.bat

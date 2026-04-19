@@ -1,0 +1,56 @@
+Visitor Island Monitor
+Hosted HTTPS Setup
+
+Goal:
+- one public HTTPS link for everyone
+- all entered data is shared
+- no office host PC needs to stay on
+
+Recommended platform:
+- Railway
+
+Your GitHub repo:
+https://github.com/outte69/Head-Count-Moniot
+
+Required files already prepared in this app:
+- Dockerfile
+- start.sh
+- Gemfile
+- config.ru
+
+Before Railway can build:
+1. Create Gemfile.lock in the app folder
+2. Push it to GitHub
+
+On your Mac run:
+
+cd "/Users/outte/Library/Mobile Documents/com~apple~CloudDocs/Downloads/visitor-headcount-app/network-shared-app"
+bundle install
+git add .
+git commit -m "Add deploy files and Gemfile.lock"
+git push
+
+Then in Railway:
+1. Create project from GitHub repo:
+   outte69/Head-Count-Moniot
+2. Use Dockerfile builder
+3. Leave Start Command blank
+4. Add a Volume
+5. Mount Volume to:
+   /app/data
+6. Add environment variable:
+   DATABASE_PATH=/app/data/visitor_island_monitor.sqlite3
+7. Deploy
+
+After Railway deploy succeeds:
+- Railway gives you a public HTTPS URL
+- all users open that same HTTPS link
+- all entered data is shared
+
+What this setup gives:
+- same link for everyone
+- shared records on all computers
+- HTTPS
+- no office Windows permission issues
+
+This is the easiest long-term option if office network restrictions keep blocking the local shared setup.

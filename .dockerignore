@@ -1,9 +1,7 @@
+.git
+.DS_Store
+log
 visitor_island_monitor.sqlite3
 records.json
 users.json
 audit_log.json
-log/
-*.log
-.DS_Store
-.bundle-home/
-Visitors/
