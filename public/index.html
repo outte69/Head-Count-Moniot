@@ -265,7 +265,7 @@
         </div>
       </section>
 
-      <section class="panel view-section hidden" data-view-section="dashboard" id="user-management-panel">
+      <section class="panel view-section hidden" hidden data-view-section="dashboard" id="user-management-panel">
         <div class="panel-head">
           <div><p class="eyebrow">User Management</p><h2 id="user-form-title">Create Login Users</h2></div>
         </div>
@@ -289,7 +289,7 @@
         </div>
       </section>
 
-      <section class="panel view-section hidden" data-view-section="dashboard" id="audit-log-panel">
+      <section class="panel view-section hidden" hidden data-view-section="dashboard" id="audit-log-panel">
         <div class="panel-head">
           <div><p class="eyebrow">Audit Log</p><h2>Recent Admin History</h2></div>
         </div>
@@ -497,14 +497,17 @@
       function setCurrentUser(user) {
         currentUser = user || null;
         const signedIn = Boolean(currentUser);
+        const admin = isAdmin();
         authShell.classList.toggle("hidden", signedIn);
         appShell.classList.toggle("hidden", !signedIn);
         sessionUserLabel.textContent = currentUser ? `${currentUser.username} (${currentUser.role})` : "";
-        userManagementPanel.classList.toggle("hidden", !isAdmin());
-        auditLogPanel.classList.toggle("hidden", !isAdmin());
-        exportVisible.classList.toggle("hidden", !isAdmin());
-        exportCurrentDate.classList.toggle("hidden", !isAdmin());
-        exportCurrentMonth.classList.toggle("hidden", !isAdmin());
+        userManagementPanel.classList.toggle("hidden", !admin);
+        auditLogPanel.classList.toggle("hidden", !admin);
+        userManagementPanel.hidden = !admin;
+        auditLogPanel.hidden = !admin;
+        exportVisible.classList.toggle("hidden", !admin);
+        exportCurrentDate.classList.toggle("hidden", !admin);
+        exportCurrentMonth.classList.toggle("hidden", !admin);
         fields.user.value = currentUser ? currentUser.username : "";
       }
 
