@@ -265,6 +265,20 @@ module VisitorIslandMonitor
         raise Error.new("Method not allowed", status: 405)
       end
 
+      if path == "/api/admin/whatsapp-status"
+        require_admin!(current_user)
+        return whatsapp_status if method == "GET"
+
+        raise Error.new("Method not allowed", status: 405)
+      end
+
+      if path == "/api/admin/whatsapp-send-test"
+        require_admin!(current_user)
+        return send_test_whatsapp(body, current_user) if method == "POST"
+
+        raise Error.new("Method not allowed", status: 405)
+      end
+
       if path.start_with?("/api/admin/whatsapp-recipient/")
         require_admin!(current_user)
         id = path.split("/").last
@@ -449,6 +463,8 @@ module VisitorIslandMonitor
         send_whatsapp_summary(recipient, message_body)
       end
       @state_store.write("lastWhatsappSummaryHour", current_hour_key)
+      @state_store.write("lastWhatsappSentAt", Time.now.utc.iso8601)
+      @state_store.write("lastWhatsappSendStatus", "success")
     end
 
     def whatsapp_summary_message(summary_date, totals)
@@ -525,6 +541,17 @@ module VisitorIslandMonitor
       return if response.code.to_i.between?(200, 299)
 
       raise Error.new("WhatsApp summary failed for #{recipient['name']}: #{response.code}", status: 502)
+    end
+
+    def whatsapp_status
+      json_response(200, {
+        enabled: whatsapp_enabled?,
+        ready: whatsapp_ready?,
+        recipientCount: configured_whatsapp_recipients.length,
+        lastSentAt: @state_store.fetch("lastWhatsappSentAt"),
+        lastSendStatus: @state_store.fetch("lastWhatsappSendStatus"),
+        lastSentHour: @state_store.fetch("lastWhatsappSummaryHour")
+      })
     end
 
     def session_status(env)
@@ -655,6 +682,34 @@ module VisitorIslandMonitor
     def list_whatsapp_recipients
       recipients = @whatsapp_store.read_records.sort_by { |recipient| recipient["name"].to_s.downcase }
       json_response(200, recipients)
+    end
+
+    def send_test_whatsapp(body, current_user)
+      raise Error.new("WhatsApp sending is not configured", status: 503) unless whatsapp_ready?
+
+      payload = parse_json_body(body)
+      recipient_id = payload["recipientId"].to_s
+      recipients = configured_whatsapp_recipients
+      recipient = recipients.find { |entry| entry["id"].to_s == recipient_id } || recipients.first
+      raise Error.new("WhatsApp recipient not found", status: 404) unless recipient
+
+      summary_date = operational_today
+      totals = calculate_totals(sorted_records.select { |record| operational_date(record["date"], record["time"]) == summary_date })
+      message_body = "#{whatsapp_summary_message(summary_date, totals)}\n\nTest Message Sent By: #{current_user['username']}"
+      send_whatsapp_summary(recipient, message_body)
+      @state_store.write("lastWhatsappSentAt", Time.now.utc.iso8601)
+      @state_store.write("lastWhatsappSendStatus", "test_success")
+      log_event(
+        event_type: "whatsapp_test_sent",
+        actor: current_user["username"].to_s,
+        target_type: "whatsapp_recipient",
+        target_id: recipient["id"],
+        details: recipient
+      )
+      json_response(200, { success: true, recipient: recipient })
+    rescue Error => error
+      @state_store.write("lastWhatsappSendStatus", "error: #{error.message}")
+      raise
     end
 
     def create_whatsapp_recipient(body, current_user)

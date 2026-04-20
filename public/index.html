@@ -312,10 +312,12 @@
           <label><span>WhatsApp Number</span><input id="whatsapp-number" placeholder="+9607744490" required /></label>
           <div class="form-actions full-row">
             <button type="submit" id="whatsapp-save-button">Add Recipient</button>
+            <button type="button" class="secondary" id="whatsapp-test-button">Send Test Message Now</button>
             <button type="button" class="secondary" id="cancel-whatsapp-edit">Cancel Edit</button>
             <p class="helper-note">Only admin users can manage WhatsApp recipients. Hourly summaries will be sent only to the names listed here.</p>
           </div>
         </form>
+        <p class="status" id="whatsapp-status">WhatsApp summary status will appear here.</p>
         <div class="table-wrap" style="margin-top:14px;">
           <table>
             <thead>
@@ -416,10 +418,12 @@
       const whatsappForm = document.getElementById("whatsapp-form");
       const whatsappFormTitle = document.getElementById("whatsapp-form-title");
       const whatsappSaveButton = document.getElementById("whatsapp-save-button");
+      const whatsappTestButton = document.getElementById("whatsapp-test-button");
       const cancelWhatsappEditButton = document.getElementById("cancel-whatsapp-edit");
       const whatsappBody = document.getElementById("whatsapp-body");
       const whatsappName = document.getElementById("whatsapp-name");
       const whatsappNumber = document.getElementById("whatsapp-number");
+      const whatsappStatusLabel = document.getElementById("whatsapp-status");
       const viewTabs = Array.from(document.querySelectorAll(".view-tab"));
       const viewSections = Array.from(document.querySelectorAll("[data-view-section]"));
       const exportVisible = document.getElementById("export-visible");
@@ -464,6 +468,7 @@
       let currentUser = null;
       let auditEntries = [];
       let whatsappRecipients = [];
+      let whatsappDeliveryStatus = null;
       let editingUsername = null;
       let editingWhatsappId = null;
       const adminPanelSlots = [
@@ -823,8 +828,18 @@
       function renderWhatsappRecipients() {
         if (!isAdmin()) {
           whatsappBody.innerHTML = "";
+          whatsappStatusLabel.textContent = "";
           return;
         }
+        const statusParts = [];
+        if (whatsappDeliveryStatus) {
+          statusParts.push(`Configured recipients: ${whatsappDeliveryStatus.recipientCount || 0}`);
+          statusParts.push(`WhatsApp enabled: ${whatsappDeliveryStatus.enabled ? "Yes" : "No"}`);
+          statusParts.push(`Ready: ${whatsappDeliveryStatus.ready ? "Yes" : "No"}`);
+          statusParts.push(`Last send status: ${whatsappDeliveryStatus.lastSendStatus || "Not sent yet"}`);
+          statusParts.push(`Last sent at: ${whatsappDeliveryStatus.lastSentAt ? new Date(whatsappDeliveryStatus.lastSentAt).toLocaleString() : "Not sent yet"}`);
+        }
+        whatsappStatusLabel.textContent = statusParts.join(" | ");
         if (!whatsappRecipients.length) {
           whatsappBody.innerHTML = '<tr><td class="empty" colspan="4">No WhatsApp recipients added yet.</td></tr>';
           return;
@@ -928,12 +943,25 @@
       async function loadWhatsappRecipients() {
         if (!isAdmin()) {
           whatsappRecipients = [];
+          whatsappDeliveryStatus = null;
           renderWhatsappRecipients();
           return;
         }
         const response = await apiFetch("/api/admin/whatsapp-recipients");
         if (!response.ok) throw new Error("Failed to load WhatsApp recipients");
         whatsappRecipients = await response.json();
+        renderWhatsappRecipients();
+      }
+
+      async function loadWhatsappStatus() {
+        if (!isAdmin()) {
+          whatsappDeliveryStatus = null;
+          renderWhatsappRecipients();
+          return;
+        }
+        const response = await apiFetch("/api/admin/whatsapp-status");
+        if (!response.ok) throw new Error("Failed to load WhatsApp status");
+        whatsappDeliveryStatus = await response.json();
         renderWhatsappRecipients();
       }
 
@@ -985,6 +1013,17 @@
           method: "DELETE"
         });
         if (!response.ok) throw new Error("Delete failed");
+      }
+
+      async function sendWhatsappTest(recipientId) {
+        const response = await apiFetch("/api/admin/whatsapp-send-test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipientId })
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Test send failed");
+        return payload;
       }
 
       async function deleteRecord(id) {
@@ -1194,6 +1233,7 @@
           await loadUsers();
           await loadAuditLog();
           await loadWhatsappRecipients();
+          await loadWhatsappStatus();
           refreshView();
           setActiveView("dashboard");
           loginForm.reset();
@@ -1214,6 +1254,7 @@
           records = [];
           auditEntries = [];
           whatsappRecipients = [];
+          whatsappDeliveryStatus = null;
           renderUsers([]);
           renderAuditLog();
           renderWhatsappRecipients();
@@ -1265,12 +1306,28 @@
           resetWhatsappForm();
           await loadWhatsappRecipients();
           await loadAuditLog();
+          await loadWhatsappStatus();
         } catch (error) {
           alert(`Could not save WhatsApp recipient: ${error.message}`);
         }
       });
 
       cancelWhatsappEditButton.addEventListener("click", resetWhatsappForm);
+      whatsappTestButton.addEventListener("click", async () => {
+        try {
+          const recipientId = editingWhatsappId || (whatsappRecipients[0] && whatsappRecipients[0].id);
+          if (!recipientId) {
+            alert("Add at least one WhatsApp recipient first.");
+            return;
+          }
+          const payload = await sendWhatsappTest(recipientId);
+          await loadWhatsappStatus();
+          alert(`Test WhatsApp message sent to ${payload.recipient.name}.`);
+        } catch (error) {
+          await loadWhatsappStatus();
+          alert(`Test send failed: ${error.message}`);
+        }
+      });
 
       usersBody.addEventListener("click", (event) => {
         const button = event.target.closest("button[data-user-action]");
@@ -1294,6 +1351,7 @@
             await deleteWhatsappRecipient(id);
             await loadWhatsappRecipients();
             await loadAuditLog();
+            await loadWhatsappStatus();
           } catch (error) {
             alert(`Delete failed: ${error.message}`);
           }
@@ -1347,6 +1405,7 @@
           await loadUsers();
           await loadAuditLog();
           await loadWhatsappRecipients();
+          await loadWhatsappStatus();
           refreshView();
           setActiveView("dashboard");
         } catch (error) {
