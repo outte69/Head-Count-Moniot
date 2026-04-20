@@ -395,8 +395,7 @@ module VisitorIslandMonitor
     def whatsapp_ready?
       whatsapp_enabled? &&
         !ENV["WHATSAPP_ACCESS_TOKEN"].to_s.empty? &&
-        !ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s.empty? &&
-        !configured_whatsapp_recipients.empty?
+        !ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s.empty?
     end
 
     def whatsapp_named_recipients
@@ -433,6 +432,9 @@ module VisitorIslandMonitor
     end
 
     def run_hourly_whatsapp_summary_if_due
+      recipients = configured_whatsapp_recipients
+      return if recipients.empty?
+
       now = Time.now
       current_hour_key = now.strftime("%Y-%m-%d-%H")
       return if @state_store.fetch("lastWhatsappSummaryHour") == current_hour_key
@@ -443,7 +445,7 @@ module VisitorIslandMonitor
 
       totals = calculate_totals(records)
       message_body = whatsapp_summary_message(summary_date, totals)
-      configured_whatsapp_recipients.each do |recipient|
+      recipients.each do |recipient|
         send_whatsapp_summary(recipient, message_body)
       end
       @state_store.write("lastWhatsappSummaryHour", current_hour_key)
