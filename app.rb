@@ -189,6 +189,16 @@ module VisitorIslandMonitor
         raise Error.new("Method not allowed", status: 405)
       end
 
+      if path.start_with?("/api/user/")
+        require_admin!(current_user)
+        username = path.split("/", 4).last.to_s
+        raise Error.new("Missing username", status: 400) if username.strip.empty?
+
+        return update_user(username, body, current_user) if method == "PUT"
+
+        raise Error.new("Method not allowed", status: 405)
+      end
+
       if path == "/api/audit-log"
         require_admin!(current_user)
         return list_audit_log if method == "GET"
@@ -393,6 +403,53 @@ module VisitorIslandMonitor
         details: public_user(record)
       )
       json_response(201, public_user(record))
+    end
+
+    def update_user(username, body, current_user)
+      payload = parse_json_body(body)
+      users = @user_store.read_users
+      index = users.index { |user| user["username"].to_s.casecmp?(username) }
+      raise Error.new("User not found", status: 404) unless index
+
+      existing = users[index]
+      before_user = public_user(existing.dup)
+      updated_username = payload["username"].to_s.strip
+      updated_username = existing["username"] if updated_username.empty?
+      role = payload["role"].to_s == "admin" ? "admin" : "user"
+      password = payload["password"].to_s
+
+      duplicate = users.any? do |user|
+        !user["username"].to_s.casecmp?(existing["username"].to_s) &&
+          user["username"].to_s.casecmp?(updated_username)
+      end
+      raise Error.new("That username already exists", status: 409) if duplicate
+
+      existing["username"] = updated_username
+      existing["role"] = role
+      password_changed = false
+      if !password.empty?
+        raise Error.new("Password must be at least 8 characters", status: 400) if password.length < 8
+
+        salt = SecureRandom.hex(16)
+        existing["passwordSalt"] = salt
+        existing["passwordHash"] = UserStore.password_hash(password, salt)
+        password_changed = true
+      end
+      users[index] = existing
+      @user_store.write_users(users)
+
+      log_event(
+        event_type: password_changed ? "user_updated_with_password" : "user_updated",
+        actor: current_user["username"].to_s,
+        target_type: "user",
+        target_id: updated_username,
+        details: {
+          "before" => before_user,
+          "after" => public_user(existing)
+        }
+      )
+
+      json_response(200, public_user(existing))
     end
 
     def list_audit_log

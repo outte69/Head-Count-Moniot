@@ -159,7 +159,7 @@
           <div>
             <p class="eyebrow">Hosted Web App</p>
             <h1>Visitor Island Monitor</h1>
-            <p class="hero-copy">Signed-in users share the same live records. The default screen stays on the current date, while history totals and older entries are available through filters.</p>
+            <p class="hero-copy">Signed-in users share the same live records. Users can add and edit logs, while only admin users can delete logs, manage users, export data, and view audit history.</p>
           </div>
           <div class="session-bar">
             <div class="session-chip"><span>Signed In As</span><strong id="session-user-label"></strong></div>
@@ -250,21 +250,22 @@
 
       <section class="panel view-section" data-view-section="dashboard" id="user-management-panel">
         <div class="panel-head">
-          <div><p class="eyebrow">User Management</p><h2>Create Login Users</h2></div>
+          <div><p class="eyebrow">User Management</p><h2 id="user-form-title">Create Login Users</h2></div>
         </div>
         <form id="user-form" class="form-grid">
           <label><span>Username</span><input id="new-username" required /></label>
           <label><span>Password</span><input id="new-password" type="password" required /></label>
           <label><span>Role</span><select id="new-role"><option value="user">User</option><option value="admin">Admin</option></select></label>
           <div class="form-actions full-row">
-            <button type="submit">Create User</button>
-            <p class="helper-note">Only admin users can create accounts. Passwords should be at least 8 characters.</p>
+            <button type="submit" id="user-save-button">Create User</button>
+            <button type="button" class="secondary" id="cancel-user-edit">Cancel Edit</button>
+            <p class="helper-note">Only admin users can create accounts, edit users, reset passwords, and view the audit history. Passwords should be at least 8 characters.</p>
           </div>
         </form>
         <div class="table-wrap" style="margin-top:14px;">
           <table>
             <thead>
-              <tr><th>Username</th><th>Role</th><th>Created</th></tr>
+              <tr><th>Username</th><th>Role</th><th>Created</th><th>Actions</th></tr>
             </thead>
             <tbody id="users-body"></tbody>
           </table>
@@ -287,6 +288,7 @@
 
       <section class="panel view-section hidden" data-view-section="edit">
         <div class="panel-head"><div><p class="eyebrow">Shared Records</p><h2>Search, Filter, Edit, And Monitor</h2></div></div>
+        <p class="small">Users can add and edit logs if there is a mistake. Only admin users can delete logs.</p>
         <div class="filters">
           <label>Search<input id="search-input" type="search" placeholder="Date, boat, room, event, note..." /></label>
           <label>Month<select id="filter-month"><option value="all">All Months</option></select></label>
@@ -365,6 +367,9 @@
       const userManagementPanel = document.getElementById("user-management-panel");
       const auditLogPanel = document.getElementById("audit-log-panel");
       const userForm = document.getElementById("user-form");
+      const userFormTitle = document.getElementById("user-form-title");
+      const userSaveButton = document.getElementById("user-save-button");
+      const cancelUserEditButton = document.getElementById("cancel-user-edit");
       const usersBody = document.getElementById("users-body");
       const auditBody = document.getElementById("audit-body");
       const viewTabs = Array.from(document.querySelectorAll(".view-tab"));
@@ -410,6 +415,7 @@
       let activeView = "dashboard";
       let currentUser = null;
       let auditEntries = [];
+      let editingUsername = null;
 
       const DUTY_DAY_START_HOUR = 6;
       const parseIsoDate = (isoDate) => {
@@ -684,7 +690,7 @@
           return;
         }
         if (!users.length) {
-          usersBody.innerHTML = '<tr><td class="empty" colspan="3">No users created yet.</td></tr>';
+          usersBody.innerHTML = '<tr><td class="empty" colspan="4">No users created yet.</td></tr>';
           return;
         }
         usersBody.innerHTML = users.map((user) => `
@@ -692,6 +698,7 @@
             <td>${user.username}</td>
             <td>${user.role}</td>
             <td>${user.createdAt ? new Date(user.createdAt).toLocaleString() : ""}</td>
+            <td><button class="secondary" data-user-action="edit" data-username="${user.username}" data-role="${user.role}">Edit User</button></td>
           </tr>
         `).join("");
       }
@@ -700,6 +707,15 @@
         const details = entry.details || {};
         if (entry.eventType === "user_created") {
           return `Created ${details.username || entry.targetId} as ${details.role || "user"}`;
+        }
+        if (entry.eventType === "user_updated" || entry.eventType === "user_updated_with_password") {
+          const before = details.before || {};
+          const after = details.after || {};
+          const parts = [];
+          if (before.username !== after.username) parts.push(`Username ${before.username || ""} -> ${after.username || ""}`);
+          if (before.role !== after.role) parts.push(`Role ${before.role || ""} -> ${after.role || ""}`);
+          if (entry.eventType === "user_updated_with_password") parts.push("Password reset");
+          return parts.join(" | ");
         }
 
         const source = details.after || details;
@@ -834,6 +850,15 @@
         if (!response.ok) throw new Error(await response.text());
       }
 
+      async function updateUser(username, payload) {
+        const response = await apiFetch(`/api/user/${encodeURIComponent(username)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+      }
+
       async function deleteRecord(id) {
         const response = await apiFetch(`/api/record/${id}`, { method: "DELETE" });
         if (!response.ok) throw new Error("Delete failed");
@@ -868,6 +893,31 @@
         fields.remarks.value = record.remarks || "";
         fields.user.value = currentUser ? currentUser.username : "";
         window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function resetUserForm() {
+        editingUsername = null;
+        userFormTitle.textContent = "Create Login Users";
+        userSaveButton.textContent = "Create User";
+        newUsername.readOnly = false;
+        newPassword.required = true;
+        newPassword.value = "";
+        newPassword.placeholder = "";
+        newUsername.value = "";
+        newRole.value = "user";
+      }
+
+      function editUser(username, role) {
+        editingUsername = username;
+        userFormTitle.textContent = `Edit User: ${username}`;
+        userSaveButton.textContent = "Update User";
+        newUsername.value = username;
+        newUsername.readOnly = false;
+        newRole.value = role || "user";
+        newPassword.required = false;
+        newPassword.value = "";
+        newPassword.placeholder = "Leave blank to keep current password";
+        userForm.scrollIntoView({ behavior: "smooth", block: "start" });
       }
 
       function refreshView() {
@@ -1017,6 +1067,7 @@
           auditEntries = [];
           renderUsers([]);
           renderAuditLog();
+          resetUserForm();
           loginStatus.textContent = "Signed out. Please sign in again.";
         }
       });
@@ -1024,18 +1075,33 @@
       userForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         try {
-          await createUser({
+          const payload = {
             username: newUsername.value.trim(),
             password: newPassword.value,
             role: newRole.value
-          });
-          userForm.reset();
-          newRole.value = "user";
+          };
+          if (editingUsername) {
+            await updateUser(editingUsername, payload);
+            alert("User updated successfully.");
+          } else {
+            await createUser(payload);
+            alert("User created successfully.");
+          }
+          resetUserForm();
           await loadUsers();
           await loadAuditLog();
-          alert("User created successfully.");
         } catch (error) {
-          alert(`Could not create user: ${error.message}`);
+          alert(`Could not save user: ${error.message}`);
+        }
+      });
+
+      cancelUserEditButton.addEventListener("click", resetUserForm);
+
+      usersBody.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-user-action]");
+        if (!button) return;
+        if (button.dataset.userAction === "edit") {
+          editUser(button.dataset.username, button.dataset.role);
         }
       });
 
