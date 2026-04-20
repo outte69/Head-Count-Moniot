@@ -433,6 +433,10 @@
       let currentUser = null;
       let auditEntries = [];
       let editingUsername = null;
+      const adminPanelSlots = [
+        { element: userManagementPanel, parent: userManagementPanel.parentNode, nextSibling: userManagementPanel.nextSibling },
+        { element: auditLogPanel, parent: auditLogPanel.parentNode, nextSibling: auditLogPanel.nextSibling }
+      ];
 
       const DUTY_DAY_START_HOUR = 6;
       const parseIsoDate = (isoDate) => {
@@ -479,6 +483,17 @@
       const summaryRows = (entries) => entries.map(([label, value]) => `<div class="summary-row"><span>${label}</span><strong>${value}</strong></div>`).join("");
       const isAdmin = () => currentUser && currentUser.role === "admin";
 
+      function syncAdminPanels(admin) {
+        adminPanelSlots.forEach((slot) => {
+          const mounted = slot.element.isConnected;
+          if (admin && !mounted) {
+            slot.parent.insertBefore(slot.element, slot.nextSibling);
+          } else if (!admin && mounted) {
+            slot.element.remove();
+          }
+        });
+      }
+
       async function apiFetch(url, options = {}) {
         const response = await fetch(url, {
           credentials: "same-origin",
@@ -498,6 +513,7 @@
         currentUser = user || null;
         const signedIn = Boolean(currentUser);
         const admin = isAdmin();
+        syncAdminPanels(admin);
         authShell.classList.toggle("hidden", signedIn);
         appShell.classList.toggle("hidden", !signedIn);
         sessionUserLabel.textContent = currentUser ? `${currentUser.username} (${currentUser.role})` : "";
