@@ -3,9 +3,11 @@
 
 require "date"
 require "json"
+require "net/http"
 require "securerandom"
 require "time"
 require "digest"
+require "uri"
 require "sqlite3"
 
 module VisitorIslandMonitor
@@ -114,6 +116,38 @@ module VisitorIslandMonitor
     end
   end
 
+  class JsonStateFile
+    def initialize(path)
+      @path = path
+      ensure_parent_dir
+    end
+
+    def fetch(key)
+      read_state[key]
+    end
+
+    def write(key, value)
+      state = read_state
+      state[key] = value
+      File.write(@path, JSON.pretty_generate(state))
+    end
+
+    private
+
+    def ensure_parent_dir
+      dir = File.dirname(@path)
+      Dir.mkdir(dir) unless Dir.exist?(dir)
+    end
+
+    def read_state
+      return {} unless File.exist?(@path)
+
+      JSON.parse(File.read(@path))
+    rescue JSON::ParserError
+      {}
+    end
+  end
+
   class App
     def initialize(public_dir:, data_file:)
       @public_dir = public_dir
@@ -122,9 +156,11 @@ module VisitorIslandMonitor
       @store = Store.new(database_path, "records")
       @user_store = UserStore.new(database_path)
       @audit_store = Store.new(database_path, "audit_logs")
+      @state_store = JsonStateFile.new(File.join(File.dirname(database_path), "visitor_monitor_state.json"))
       import_legacy_json(app_dir)
       @user_store.ensure_default_admin
       @sessions = {}
+      start_whatsapp_scheduler
     end
 
     def handle_request(method:, path:, body: nil, env: {})
@@ -330,6 +366,130 @@ module VisitorIslandMonitor
       provided = env["HTTP_X_BACKUP_TOKEN"].to_s
       raise Error.new("Backup token is required", status: 401) if provided.empty?
       raise Error.new("Invalid backup token", status: 403) unless provided == expected
+    end
+
+    def whatsapp_enabled?
+      ENV["WHATSAPP_SUMMARY_ENABLED"].to_s == "true"
+    end
+
+    def whatsapp_ready?
+      whatsapp_enabled? &&
+        !ENV["WHATSAPP_ACCESS_TOKEN"].to_s.empty? &&
+        !ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s.empty? &&
+        !whatsapp_recipients.empty?
+    end
+
+    def whatsapp_recipients
+      ENV.fetch("WHATSAPP_RECIPIENTS", "").split(",").map(&:strip).reject(&:empty?)
+    end
+
+    def start_whatsapp_scheduler
+      return unless whatsapp_ready?
+      return if defined?(@whatsapp_scheduler_started) && @whatsapp_scheduler_started
+
+      @whatsapp_scheduler_started = true
+      Thread.new do
+        Thread.current.name = "visitor-monitor-whatsapp-summary" if Thread.current.respond_to?(:name=)
+        loop do
+          run_hourly_whatsapp_summary_if_due
+          sleep 60
+        rescue StandardError => error
+          warn "[visitor-island-monitor] WhatsApp scheduler error: #{error.class}: #{error.message}"
+          sleep 60
+        end
+      end
+    end
+
+    def run_hourly_whatsapp_summary_if_due
+      now = Time.now
+      current_hour_key = now.strftime("%Y-%m-%d-%H")
+      return if @state_store.fetch("lastWhatsappSummaryHour") == current_hour_key
+
+      summary_date = operational_today
+      records = sorted_records.select { |record| operational_date(record["date"], record["time"]) == summary_date }
+      return if records.empty?
+
+      totals = calculate_totals(records)
+      message_body = whatsapp_summary_message(summary_date, totals)
+      whatsapp_recipients.each do |recipient|
+        send_whatsapp_summary(recipient, message_body)
+      end
+      @state_store.write("lastWhatsappSummaryHour", current_hour_key)
+    end
+
+    def whatsapp_summary_message(summary_date, totals)
+      [
+        "Visitor Island Monitor",
+        "Duty Date: #{display_date(summary_date)}",
+        "",
+        "Visitor Arrivals: #{totals['visitorArrivals']}",
+        "Visitor Departures: #{totals['visitorDepartures']}",
+        "Visitors Remaining: #{totals['visitorsOnIsland']}",
+        "",
+        "Event Visitor Arrivals: #{totals['eventVisitorArrivals']}",
+        "Event Visitor Departures: #{totals['eventVisitorDepartures']}",
+        "Event Visitors Remaining: #{totals['eventVisitorsOnIsland']}",
+        "",
+        "Staff Arrivals: #{totals['staffArrivals']}",
+        "Staff Departures: #{totals['staffDepartures']}",
+        "Staff Remaining: #{totals['staffsOnIsland']}"
+      ].join("\n")
+    end
+
+    def send_whatsapp_summary(recipient, message_body)
+      access_token = ENV["WHATSAPP_ACCESS_TOKEN"].to_s
+      phone_number_id = ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s
+      template_name = ENV["WHATSAPP_TEMPLATE_NAME"].to_s
+      template_language = ENV.fetch("WHATSAPP_TEMPLATE_LANGUAGE", "en_US")
+
+      uri = URI("https://graph.facebook.com/v22.0/#{phone_number_id}/messages")
+      request = Net::HTTP::Post.new(uri)
+      request["Authorization"] = "Bearer #{access_token}"
+      request["Content-Type"] = "application/json"
+      request.body =
+        JSON.generate(
+          if template_name.empty?
+            {
+              messaging_product: "whatsapp",
+              recipient_type: "individual",
+              to: recipient,
+              type: "text",
+              text: {
+                preview_url: false,
+                body: message_body
+              }
+            }
+          else
+            {
+              messaging_product: "whatsapp",
+              recipient_type: "individual",
+              to: recipient,
+              type: "template",
+              template: {
+                name: template_name,
+                language: { code: template_language },
+                components: [
+                  {
+                    type: "body",
+                    parameters: [
+                      {
+                        type: "text",
+                        text: message_body
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          end
+        )
+
+      response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+        http.request(request)
+      end
+      return if response.code.to_i.between?(200, 299)
+
+      raise Error.new("WhatsApp summary failed: #{response.code}", status: 502)
     end
 
     def session_status(env)

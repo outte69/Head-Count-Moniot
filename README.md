@@ -135,6 +135,12 @@ Important environment values:
 - `DATA_FILE` lets you move the shared data file to another folder
 - `DATABASE_PATH` lets you choose where the SQLite database file is stored
 - `APP_ENV` sets the runtime environment
+- `WHATSAPP_SUMMARY_ENABLED=true` turns on automatic hourly WhatsApp summaries
+- `WHATSAPP_ACCESS_TOKEN` is your Meta WhatsApp Cloud API token
+- `WHATSAPP_PHONE_NUMBER_ID` is your WhatsApp sender phone number ID
+- `WHATSAPP_RECIPIENTS` is a comma-separated list of destination numbers such as `+9607744490`
+- `WHATSAPP_TEMPLATE_NAME` is optional if you want the hosted app to use an approved template
+- `WHATSAPP_TEMPLATE_LANGUAGE` defaults to `en_US`
 
 Recommended Railway settings:
 
@@ -142,6 +148,46 @@ Recommended Railway settings:
 - Start command: leave blank if using Dockerfile
 - Volume mount path: `/app/data`
 - Environment variable: `DATABASE_PATH=/app/data/visitor_island_monitor.sqlite3`
+
+## WhatsApp Summary
+
+The hosted app can now send an automatic summary every hour when WhatsApp settings are present.
+
+What it sends:
+
+- duty date
+- visitor arrivals
+- visitor departures
+- visitors remaining
+- event visitor arrivals
+- event visitor departures
+- event visitors remaining
+- staff arrivals
+- staff departures
+- staff remaining
+
+How it works:
+
+- it checks once a minute
+- it sends once per hour
+- it tracks the last sent hour in `visitor_monitor_state.json` beside the database so it does not resend the same hour after a restart
+- it uses the current operational duty date, which still runs from `06:00` to the next day `05:59`
+
+Message mode:
+
+- if `WHATSAPP_TEMPLATE_NAME` is set, the app sends the summary using one body placeholder in that approved template
+- if `WHATSAPP_TEMPLATE_NAME` is not set, it sends a plain WhatsApp text message
+
+Example Railway variables:
+
+```text
+WHATSAPP_SUMMARY_ENABLED=true
+WHATSAPP_ACCESS_TOKEN=your-meta-token
+WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
+WHATSAPP_RECIPIENTS=+9607744490
+WHATSAPP_TEMPLATE_NAME=visitor_hourly_summary
+WHATSAPP_TEMPLATE_LANGUAGE=en_US
+```
 
 ## Login Users
 
