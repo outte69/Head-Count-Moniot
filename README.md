@@ -139,7 +139,7 @@ Important environment values:
 - `WHATSAPP_ACCESS_TOKEN` is your Meta WhatsApp Cloud API token
 - `WHATSAPP_PHONE_NUMBER_ID` is your WhatsApp sender phone number ID
 - `WHATSAPP_RECIPIENTS` is a comma-separated list of named recipients in `Name:+number` format
-- `WHATSAPP_TEMPLATE_NAME` is optional if you want the hosted app to use an approved template
+- `WHATSAPP_TEMPLATE_NAME` is required for scheduled WhatsApp summaries
 - `WHATSAPP_TEMPLATE_LANGUAGE` defaults to `en_US`
 
 Recommended Railway settings:
@@ -175,8 +175,8 @@ How it works:
 
 Message mode:
 
-- if `WHATSAPP_TEMPLATE_NAME` is set, the app sends the summary using one body placeholder in that approved template
-- if `WHATSAPP_TEMPLATE_NAME` is not set, it sends a plain WhatsApp text message
+- scheduled summaries use an approved WhatsApp template
+- the template should accept one body placeholder because the app sends the whole formatted summary as a single text variable
 
 Example Railway variables:
 

@@ -409,7 +409,8 @@ module VisitorIslandMonitor
     def whatsapp_ready?
       whatsapp_enabled? &&
         !ENV["WHATSAPP_ACCESS_TOKEN"].to_s.empty? &&
-        !ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s.empty?
+        !ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s.empty? &&
+        !ENV["WHATSAPP_TEMPLATE_NAME"].to_s.empty?
     end
 
     def whatsapp_named_recipients
@@ -493,46 +494,35 @@ module VisitorIslandMonitor
       template_language = ENV.fetch("WHATSAPP_TEMPLATE_LANGUAGE", "en_US")
       recipient_number = recipient.fetch("number")
 
+      raise Error.new("WhatsApp template name is required for scheduled delivery", status: 503) if template_name.empty?
+
       uri = URI("https://graph.facebook.com/v22.0/#{phone_number_id}/messages")
       request = Net::HTTP::Post.new(uri)
       request["Authorization"] = "Bearer #{access_token}"
       request["Content-Type"] = "application/json"
       request.body =
         JSON.generate(
-          if template_name.empty?
-            {
-              messaging_product: "whatsapp",
-              recipient_type: "individual",
-              to: recipient_number,
-              type: "text",
-              text: {
-                preview_url: false,
-                body: message_body
-              }
+          {
+            messaging_product: "whatsapp",
+            recipient_type: "individual",
+            to: recipient_number,
+            type: "template",
+            template: {
+              name: template_name,
+              language: { code: template_language },
+              components: [
+                {
+                  type: "body",
+                  parameters: [
+                    {
+                      type: "text",
+                      text: message_body
+                    }
+                  ]
+                }
+              ]
             }
-          else
-            {
-              messaging_product: "whatsapp",
-              recipient_type: "individual",
-              to: recipient_number,
-              type: "template",
-              template: {
-                name: template_name,
-                language: { code: template_language },
-                components: [
-                  {
-                    type: "body",
-                    parameters: [
-                      {
-                        type: "text",
-                        text: message_body
-                      }
-                    ]
-                  }
-                ]
-              }
-            }
-          end
+          }
         )
 
       response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
@@ -540,7 +530,8 @@ module VisitorIslandMonitor
       end
       return if response.code.to_i.between?(200, 299)
 
-      raise Error.new("WhatsApp summary failed for #{recipient['name']}: #{response.code}", status: 502)
+      error_body = response.body.to_s.strip
+      raise Error.new("WhatsApp summary failed for #{recipient['name']}: #{response.code} #{error_body}", status: 502)
     end
 
     def whatsapp_status
