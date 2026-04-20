@@ -138,7 +138,7 @@ Important environment values:
 - `WHATSAPP_SUMMARY_ENABLED=true` turns on automatic hourly WhatsApp summaries
 - `WHATSAPP_ACCESS_TOKEN` is your Meta WhatsApp Cloud API token
 - `WHATSAPP_PHONE_NUMBER_ID` is your WhatsApp sender phone number ID
-- `WHATSAPP_RECIPIENTS` is a comma-separated list of destination numbers such as `+9607744490`
+- `WHATSAPP_RECIPIENTS` is a comma-separated list of named recipients in `Name:+number` format
 - `WHATSAPP_TEMPLATE_NAME` is optional if you want the hosted app to use an approved template
 - `WHATSAPP_TEMPLATE_LANGUAGE` defaults to `en_US`
 
@@ -184,7 +184,7 @@ Example Railway variables:
 WHATSAPP_SUMMARY_ENABLED=true
 WHATSAPP_ACCESS_TOKEN=your-meta-token
 WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
-WHATSAPP_RECIPIENTS=+9607744490
+WHATSAPP_RECIPIENTS=Supervisor:+9607744490,Manager:+9607000000
 WHATSAPP_TEMPLATE_NAME=visitor_hourly_summary
 WHATSAPP_TEMPLATE_LANGUAGE=en_US
 ```

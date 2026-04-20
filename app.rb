@@ -376,11 +376,16 @@ module VisitorIslandMonitor
       whatsapp_enabled? &&
         !ENV["WHATSAPP_ACCESS_TOKEN"].to_s.empty? &&
         !ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s.empty? &&
-        !whatsapp_recipients.empty?
+        !whatsapp_named_recipients.empty?
     end
 
-    def whatsapp_recipients
-      ENV.fetch("WHATSAPP_RECIPIENTS", "").split(",").map(&:strip).reject(&:empty?)
+    def whatsapp_named_recipients
+      ENV.fetch("WHATSAPP_RECIPIENTS", "").split(",").map(&:strip).filter_map do |entry|
+        name, number = entry.split(":", 2).map { |value| value.to_s.strip }
+        next if name.empty? || number.empty?
+
+        { "name" => name, "number" => number }
+      end
     end
 
     def start_whatsapp_scheduler
@@ -411,7 +416,7 @@ module VisitorIslandMonitor
 
       totals = calculate_totals(records)
       message_body = whatsapp_summary_message(summary_date, totals)
-      whatsapp_recipients.each do |recipient|
+      whatsapp_named_recipients.each do |recipient|
         send_whatsapp_summary(recipient, message_body)
       end
       @state_store.write("lastWhatsappSummaryHour", current_hour_key)
@@ -441,6 +446,7 @@ module VisitorIslandMonitor
       phone_number_id = ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s
       template_name = ENV["WHATSAPP_TEMPLATE_NAME"].to_s
       template_language = ENV.fetch("WHATSAPP_TEMPLATE_LANGUAGE", "en_US")
+      recipient_number = recipient.fetch("number")
 
       uri = URI("https://graph.facebook.com/v22.0/#{phone_number_id}/messages")
       request = Net::HTTP::Post.new(uri)
@@ -452,7 +458,7 @@ module VisitorIslandMonitor
             {
               messaging_product: "whatsapp",
               recipient_type: "individual",
-              to: recipient,
+              to: recipient_number,
               type: "text",
               text: {
                 preview_url: false,
@@ -463,7 +469,7 @@ module VisitorIslandMonitor
             {
               messaging_product: "whatsapp",
               recipient_type: "individual",
-              to: recipient,
+              to: recipient_number,
               type: "template",
               template: {
                 name: template_name,
@@ -489,7 +495,7 @@ module VisitorIslandMonitor
       end
       return if response.code.to_i.between?(200, 299)
 
-      raise Error.new("WhatsApp summary failed: #{response.code}", status: 502)
+      raise Error.new("WhatsApp summary failed for #{recipient['name']}: #{response.code}", status: 502)
     end
 
     def session_status(env)
