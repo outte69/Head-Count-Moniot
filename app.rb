@@ -156,6 +156,7 @@ module VisitorIslandMonitor
       @store = Store.new(database_path, "records")
       @user_store = UserStore.new(database_path)
       @audit_store = Store.new(database_path, "audit_logs")
+      @whatsapp_store = Store.new(database_path, "whatsapp_recipients")
       @state_store = JsonStateFile.new(File.join(File.dirname(database_path), "visitor_monitor_state.json"))
       import_legacy_json(app_dir)
       @user_store.ensure_default_admin
@@ -252,6 +253,25 @@ module VisitorIslandMonitor
       if path == "/api/admin/export"
         require_admin!(current_user)
         return export_records(body) if method == "POST"
+
+        raise Error.new("Method not allowed", status: 405)
+      end
+
+      if path == "/api/admin/whatsapp-recipients"
+        require_admin!(current_user)
+        return list_whatsapp_recipients if method == "GET"
+        return create_whatsapp_recipient(body, current_user) if method == "POST"
+
+        raise Error.new("Method not allowed", status: 405)
+      end
+
+      if path.start_with?("/api/admin/whatsapp-recipient/")
+        require_admin!(current_user)
+        id = path.split("/").last
+        raise Error.new("Missing WhatsApp recipient id", status: 400) if id.to_s.strip.empty?
+
+        return update_whatsapp_recipient(id, body, current_user) if method == "PUT"
+        return delete_whatsapp_recipient(id, current_user) if method == "DELETE"
 
         raise Error.new("Method not allowed", status: 405)
       end
@@ -376,7 +396,7 @@ module VisitorIslandMonitor
       whatsapp_enabled? &&
         !ENV["WHATSAPP_ACCESS_TOKEN"].to_s.empty? &&
         !ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s.empty? &&
-        !whatsapp_named_recipients.empty?
+        !configured_whatsapp_recipients.empty?
     end
 
     def whatsapp_named_recipients
@@ -386,6 +406,13 @@ module VisitorIslandMonitor
 
         { "name" => name, "number" => number }
       end
+    end
+
+    def configured_whatsapp_recipients
+      stored = @whatsapp_store.read_records
+      return stored unless stored.empty?
+
+      whatsapp_named_recipients
     end
 
     def start_whatsapp_scheduler
@@ -416,7 +443,7 @@ module VisitorIslandMonitor
 
       totals = calculate_totals(records)
       message_body = whatsapp_summary_message(summary_date, totals)
-      whatsapp_named_recipients.each do |recipient|
+      configured_whatsapp_recipients.each do |recipient|
         send_whatsapp_summary(recipient, message_body)
       end
       @state_store.write("lastWhatsappSummaryHour", current_hour_key)
@@ -621,6 +648,79 @@ module VisitorIslandMonitor
     def list_audit_log
       events = @audit_store.read_records.sort_by { |entry| entry["createdAt"].to_s }.reverse.first(250)
       json_response(200, events)
+    end
+
+    def list_whatsapp_recipients
+      recipients = @whatsapp_store.read_records.sort_by { |recipient| recipient["name"].to_s.downcase }
+      json_response(200, recipients)
+    end
+
+    def create_whatsapp_recipient(body, current_user)
+      payload = parse_json_body(body)
+      recipients = @whatsapp_store.read_records
+      recipient = normalize_whatsapp_recipient(payload)
+      duplicate = recipients.any? do |entry|
+        entry["name"].to_s.casecmp?(recipient["name"]) || entry["number"].to_s == recipient["number"]
+      end
+      raise Error.new("That WhatsApp recipient already exists", status: 409) if duplicate
+
+      recipients << recipient
+      @whatsapp_store.write_records(recipients)
+      log_event(
+        event_type: "whatsapp_recipient_created",
+        actor: current_user["username"].to_s,
+        target_type: "whatsapp_recipient",
+        target_id: recipient["id"],
+        details: recipient
+      )
+      json_response(201, recipient)
+    end
+
+    def update_whatsapp_recipient(id, body, current_user)
+      payload = parse_json_body(body)
+      recipients = @whatsapp_store.read_records
+      index = recipients.index { |recipient| recipient["id"] == id }
+      raise Error.new("WhatsApp recipient not found", status: 404) unless index
+
+      existing = recipients[index]
+      updated = normalize_whatsapp_recipient(payload, existing["id"], existing)
+      duplicate = recipients.any? do |entry|
+        entry["id"] != id && (
+          entry["name"].to_s.casecmp?(updated["name"]) || entry["number"].to_s == updated["number"]
+        )
+      end
+      raise Error.new("That WhatsApp recipient already exists", status: 409) if duplicate
+
+      recipients[index] = updated
+      @whatsapp_store.write_records(recipients)
+      log_event(
+        event_type: "whatsapp_recipient_updated",
+        actor: current_user["username"].to_s,
+        target_type: "whatsapp_recipient",
+        target_id: updated["id"],
+        details: {
+          "before" => existing,
+          "after" => updated
+        }
+      )
+      json_response(200, updated)
+    end
+
+    def delete_whatsapp_recipient(id, current_user)
+      recipients = @whatsapp_store.read_records
+      index = recipients.index { |recipient| recipient["id"] == id }
+      raise Error.new("WhatsApp recipient not found", status: 404) unless index
+
+      deleted = recipients.delete_at(index)
+      @whatsapp_store.write_records(recipients)
+      log_event(
+        event_type: "whatsapp_recipient_deleted",
+        actor: current_user["username"].to_s,
+        target_type: "whatsapp_recipient",
+        target_id: deleted["id"],
+        details: deleted
+      )
+      json_response(200, deleted)
     end
 
     def report_summary(body)
@@ -1124,6 +1224,22 @@ module VisitorIslandMonitor
       when ".jpg", ".jpeg" then "image/jpeg"
       else "application/octet-stream"
       end
+    end
+
+    def normalize_whatsapp_recipient(payload, existing_id = nil, existing = nil)
+      name = payload["name"].to_s.strip
+      number = payload["number"].to_s.strip
+      raise Error.new("Recipient name is required", status: 400) if name.empty?
+      raise Error.new("WhatsApp number is required", status: 400) if number.empty?
+      raise Error.new("WhatsApp number must start with + and country code", status: 400) unless number.match?(/^\+\d{7,15}$/)
+
+      {
+        "id" => existing_id || payload["id"] || SecureRandom.uuid,
+        "name" => name,
+        "number" => number,
+        "createdAt" => existing&.dig("createdAt") || Time.now.utc.iso8601,
+        "updatedAt" => Time.now.utc.iso8601
+      }
     end
   end
 end
