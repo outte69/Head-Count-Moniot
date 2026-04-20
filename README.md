@@ -176,14 +176,36 @@ How it works:
 Message mode:
 
 - scheduled summaries use an approved WhatsApp template
-- the template should accept one body placeholder because the app sends the whole formatted summary as a single text variable
+- the template should accept 7 body placeholders in this exact order:
+  - duty date
+  - visitor arrivals
+  - visitor departures
+  - visitors remaining on island
+  - event visitor arrivals
+  - event visitor departures
+  - event visitors remaining on island
+
+Suggested template body:
+
+```text
+Visitor Island Monitor
+Duty Date: {{1}}
+
+Visitors Arrived: {{2}}
+Visitors Departed: {{3}}
+Visitors Remaining On Island: {{4}}
+
+Event Visitors Arrived: {{5}}
+Event Visitors Departed: {{6}}
+Event Visitors Remaining On Island: {{7}}
+```
 
 Example Railway variables:
 
 ```text
 WHATSAPP_SUMMARY_ENABLED=true
 WHATSAPP_ACCESS_TOKEN=your-meta-token
-WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
+WHATSAPP_PHONE_NUMBER_ID=the-meta-phone-number-id-for-+9607744490
 WHATSAPP_RECIPIENTS=Supervisor:+9607744490,Manager:+9607000000
 WHATSAPP_TEMPLATE_NAME=visitor_hourly_summary
 WHATSAPP_TEMPLATE_LANGUAGE=en_US

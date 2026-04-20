@@ -459,9 +459,8 @@ module VisitorIslandMonitor
       return if records.empty?
 
       totals = calculate_totals(records)
-      message_body = whatsapp_summary_message(summary_date, totals)
       recipients.each do |recipient|
-        send_whatsapp_summary(recipient, message_body)
+        send_whatsapp_summary(recipient, summary_date, totals)
       end
       @state_store.write("lastWhatsappSummaryHour", current_hour_key)
       @state_store.write("lastWhatsappSentAt", Time.now.utc.iso8601)
@@ -479,15 +478,23 @@ module VisitorIslandMonitor
         "",
         "Event Visitor Arrivals: #{totals['eventVisitorArrivals']}",
         "Event Visitor Departures: #{totals['eventVisitorDepartures']}",
-        "Event Visitors Remaining: #{totals['eventVisitorsOnIsland']}",
-        "",
-        "Staff Arrivals: #{totals['staffArrivals']}",
-        "Staff Departures: #{totals['staffDepartures']}",
-        "Staff Remaining: #{totals['staffsOnIsland']}"
+        "Event Visitors Remaining: #{totals['eventVisitorsOnIsland']}"
       ].join("\n")
     end
 
-    def send_whatsapp_summary(recipient, message_body)
+    def whatsapp_template_parameters(summary_date, totals)
+      [
+        display_date(summary_date),
+        totals["visitorArrivals"].to_i.to_s,
+        totals["visitorDepartures"].to_i.to_s,
+        totals["visitorsOnIsland"].to_i.to_s,
+        totals["eventVisitorArrivals"].to_i.to_s,
+        totals["eventVisitorDepartures"].to_i.to_s,
+        totals["eventVisitorsOnIsland"].to_i.to_s
+      ]
+    end
+
+    def send_whatsapp_summary(recipient, summary_date, totals)
       access_token = ENV["WHATSAPP_ACCESS_TOKEN"].to_s
       phone_number_id = ENV["WHATSAPP_PHONE_NUMBER_ID"].to_s
       template_name = ENV["WHATSAPP_TEMPLATE_NAME"].to_s
@@ -513,12 +520,12 @@ module VisitorIslandMonitor
               components: [
                 {
                   type: "body",
-                  parameters: [
+                  parameters: whatsapp_template_parameters(summary_date, totals).map do |value|
                     {
                       type: "text",
-                      text: message_body
+                      text: value
                     }
-                  ]
+                  end
                 }
               ]
             }
@@ -686,8 +693,7 @@ module VisitorIslandMonitor
 
       summary_date = operational_today
       totals = calculate_totals(sorted_records.select { |record| operational_date(record["date"], record["time"]) == summary_date })
-      message_body = "#{whatsapp_summary_message(summary_date, totals)}\n\nTest Message Sent By: #{current_user['username']}"
-      send_whatsapp_summary(recipient, message_body)
+      send_whatsapp_summary(recipient, summary_date, totals)
       @state_store.write("lastWhatsappSentAt", Time.now.utc.iso8601)
       @state_store.write("lastWhatsappSendStatus", "test_success")
       log_event(
