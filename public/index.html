@@ -78,10 +78,15 @@
         border: 1px solid var(--line);
         background: rgba(255, 253, 248, 0.72);
       }
+      .entry-form-shell {
+        display: grid;
+        gap: 14px;
+      }
       .date-time-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 14px;
+        max-width: 520px;
       }
       .movement-details-grid {
         display: grid;
@@ -143,7 +148,7 @@
       .auth-card { width: min(560px, 100%); padding: 28px; }
       .auth-grid { display: grid; gap: 14px; margin-top: 18px; }
       @media (max-width: 1100px) { .cards,.topbar,.summary-grid,.filters,.form-grid,.panel-head,.movement-details-grid { grid-template-columns: 1fr 1fr; } }
-      @media (max-width: 720px) { .app { width: min(100% - 18px, 1240px); padding-top: 18px; } .cards,.topbar,.summary-grid,.filters,.form-grid,.panel-head,.date-time-grid,.movement-details-grid { grid-template-columns: 1fr; } .span-2 { grid-column: span 1; } .button-row { grid-auto-flow: row; } }
+      @media (max-width: 720px) { .app { width: min(100% - 18px, 1240px); padding-top: 18px; } .cards,.topbar,.summary-grid,.filters,.form-grid,.panel-head,.date-time-grid,.movement-details-grid { grid-template-columns: 1fr; } .span-2 { grid-column: span 1; } .button-row { grid-auto-flow: row; } .date-time-grid { max-width: none; } }
     </style>
   </head>
   <body>
@@ -203,12 +208,12 @@
             <div><p class="eyebrow">Entry Form</p><h2 id="form-title">Add New Record</h2></div>
             <div class="button-row"><button class="secondary" id="cancel-edit">Cancel Edit</button></div>
           </div>
-          <form id="entry-form" class="form-grid">
-            <div class="form-intro full-row">
+          <form id="entry-form" class="entry-form-shell">
+            <div class="form-intro">
               Fill the main entry fields, then press `Enter` or `Save Record`. Only `Service Jetty Visitors` and `Remarks` are optional.
             </div>
 
-            <div class="form-section full-row">
+            <div class="form-section">
               <p class="form-section-title">Movement Details</p>
               <div class="date-time-grid">
                 <label><span>Date</span><input type="date" id="entry-date" required /></label>
@@ -221,7 +226,7 @@
               </div>
             </div>
 
-            <div class="form-section full-row">
+            <div class="form-section">
               <p class="form-section-title">Count Entry</p>
               <div class="form-grid">
                 <label><span>Visitors</span><input type="number" min="0" id="entry-visitors" value="0" required /></label>
@@ -236,14 +241,14 @@
               </div>
             </div>
 
-            <div class="form-section full-row">
+            <div class="form-section">
               <p class="form-section-title">Notes</p>
               <div class="form-grid">
                 <label class="full-row"><span>Remarks</span><textarea id="entry-remarks"></textarea></label>
               </div>
             </div>
 
-            <div class="form-actions full-row">
+            <div class="form-actions">
               <button type="submit" id="save-button">Save Record</button>
               <button type="button" class="secondary" id="reset-form">Clear Form</button>
               <p class="helper-note">Press Enter to save after the required fields are completed. Duty day runs from 06:00 to the next day 05:59, and entries before 06:00 save under the previous duty date.</p>
