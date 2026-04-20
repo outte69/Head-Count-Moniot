@@ -52,7 +52,7 @@
       .view-tab.active { background: var(--accent); color: white; border-color: transparent; }
       .view-section { display: block; }
       .view-section.hidden { display: none; }
-      .cards { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px; }
       .card { padding: 18px; }
       .card h3 { font-size: .95rem; color: var(--muted); margin-bottom: 10px; }
       .card strong { display: block; font-size: clamp(1.7rem, 3vw, 2.6rem); }
@@ -625,6 +625,8 @@
           ["Remaining Visitors", info.visitorsOnIsland, `for duty date ${toDisplayDate(today)}`],
           ["Staff Arrivals", info.staffArrivals, `for duty date ${toDisplayDate(today)}`],
           ["Staff Departures", info.staffDepartures, `for duty date ${toDisplayDate(today)}`],
+          ["Event Visitor Arrivals", info.eventVisitorArrivals, `for duty date ${toDisplayDate(today)}`],
+          ["Event Visitor Departures", info.eventVisitorDepartures, `for duty date ${toDisplayDate(today)}`],
           ["Service Jetty Visitors", info.serviceJettyVisitors, `for duty date ${toDisplayDate(today)}`],
           ["Event Visitors On Island", info.eventVisitorsOnIsland, `for duty date ${toDisplayDate(today)}`]
         ];
