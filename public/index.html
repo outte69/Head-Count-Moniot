@@ -78,6 +78,15 @@
         border: 1px solid var(--line);
         background: rgba(255, 253, 248, 0.72);
       }
+      .movement-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+      .date-time-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        grid-column: span 2;
+      }
       .form-section + .form-section {
         margin-top: 14px;
       }
@@ -132,8 +141,8 @@
       .auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
       .auth-card { width: min(560px, 100%); padding: 28px; }
       .auth-grid { display: grid; gap: 14px; margin-top: 18px; }
-      @media (max-width: 1100px) { .cards,.topbar,.summary-grid,.filters,.form-grid,.panel-head { grid-template-columns: 1fr 1fr; } }
-      @media (max-width: 720px) { .app { width: min(100% - 18px, 1240px); padding-top: 18px; } .cards,.topbar,.summary-grid,.filters,.form-grid,.panel-head { grid-template-columns: 1fr; } .span-2 { grid-column: span 1; } .button-row { grid-auto-flow: row; } }
+      @media (max-width: 1100px) { .cards,.topbar,.summary-grid,.filters,.form-grid,.panel-head,.movement-grid { grid-template-columns: 1fr 1fr; } .date-time-row { grid-column: span 2; } }
+      @media (max-width: 720px) { .app { width: min(100% - 18px, 1240px); padding-top: 18px; } .cards,.topbar,.summary-grid,.filters,.form-grid,.panel-head,.movement-grid,.date-time-row { grid-template-columns: 1fr; } .span-2 { grid-column: span 1; } .button-row { grid-auto-flow: row; } .date-time-row { grid-column: span 1; } }
     </style>
   </head>
   <body>
@@ -200,9 +209,11 @@
 
             <div class="form-section full-row">
               <p class="form-section-title">Movement Details</p>
-              <div class="form-grid">
-                <label><span>Date</span><input type="date" id="entry-date" required /></label>
-                <label><span>Time (24-hour format)</span><input type="text" id="entry-time" placeholder="14:30" required /></label>
+              <div class="form-grid movement-grid">
+                <div class="date-time-row">
+                  <label><span>Date</span><input type="date" id="entry-date" required /></label>
+                  <label><span>Time (24-hour format)</span><input type="text" id="entry-time" placeholder="14:30" required /></label>
+                </div>
                 <label><span>Movement</span><select id="entry-movement" required><option value="arrival">Arrival</option><option value="departure">Departure</option></select></label>
                 <label><span>Section</span><input id="entry-section" list="section-options" required /><datalist id="section-options"></datalist></label>
                 <label><span>Boat / Transport</span><input id="entry-boat" required /></label>
