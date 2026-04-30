@@ -328,6 +328,33 @@
         </div>
       </section>
 
+      <section class="panel view-section hidden" hidden data-view-section="dashboard" id="import-panel">
+        <div class="panel-head">
+          <div><p class="eyebrow">Import Data</p><h2>Admin Live Import</h2></div>
+        </div>
+        <div class="summary-grid" style="grid-template-columns: 1fr 1fr;">
+          <div class="summary-box">
+            <h3>Record CSV Import</h3>
+            <p class="small">Paste CSV content from exported daily records or load a CSV file. Summary lines are allowed.</p>
+            <label><span>CSV File</span><input type="file" id="record-import-file" accept=".csv,text/csv" /></label>
+            <label><span>Record CSV Content</span><textarea id="record-import-text"></textarea></label>
+            <div class="form-actions">
+              <button type="button" id="import-records-button">Import Records</button>
+            </div>
+          </div>
+          <div class="summary-box">
+            <h3>User CSV Import</h3>
+            <p class="small">Paste CSV content in `username,password` or `Usernames,Passwords` format. Imported accounts become normal users.</p>
+            <label><span>CSV File</span><input type="file" id="user-import-file" accept=".csv,text/csv" /></label>
+            <label><span>User CSV Content</span><textarea id="user-import-text"></textarea></label>
+            <div class="form-actions">
+              <button type="button" id="import-users-button">Import Users</button>
+            </div>
+          </div>
+        </div>
+        <p class="status" id="import-status">Only admin users can import live records and users.</p>
+      </section>
+
       <section class="panel view-section hidden" data-view-section="edit">
         <div class="panel-head"><div><p class="eyebrow">Shared Records</p><h2>Search, Filter, Edit, And Monitor</h2></div></div>
         <p class="small">Users can add and edit logs if there is a mistake. Only admin users can delete logs.</p>
@@ -415,6 +442,7 @@
       const usersBody = document.getElementById("users-body");
       const auditBody = document.getElementById("audit-body");
       const whatsappPanel = document.getElementById("whatsapp-panel");
+      const importPanel = document.getElementById("import-panel");
       const whatsappForm = document.getElementById("whatsapp-form");
       const whatsappFormTitle = document.getElementById("whatsapp-form-title");
       const whatsappSaveButton = document.getElementById("whatsapp-save-button");
@@ -424,6 +452,13 @@
       const whatsappName = document.getElementById("whatsapp-name");
       const whatsappNumber = document.getElementById("whatsapp-number");
       const whatsappStatusLabel = document.getElementById("whatsapp-status");
+      const recordImportFile = document.getElementById("record-import-file");
+      const userImportFile = document.getElementById("user-import-file");
+      const recordImportText = document.getElementById("record-import-text");
+      const userImportText = document.getElementById("user-import-text");
+      const importRecordsButton = document.getElementById("import-records-button");
+      const importUsersButton = document.getElementById("import-users-button");
+      const importStatus = document.getElementById("import-status");
       const viewTabs = Array.from(document.querySelectorAll(".view-tab"));
       const viewSections = Array.from(document.querySelectorAll("[data-view-section]"));
       const exportVisible = document.getElementById("export-visible");
@@ -474,7 +509,8 @@
       const adminPanelSlots = [
         { element: userManagementPanel, parent: userManagementPanel.parentNode, nextSibling: userManagementPanel.nextSibling },
         { element: auditLogPanel, parent: auditLogPanel.parentNode, nextSibling: auditLogPanel.nextSibling },
-        { element: whatsappPanel, parent: whatsappPanel.parentNode, nextSibling: whatsappPanel.nextSibling }
+        { element: whatsappPanel, parent: whatsappPanel.parentNode, nextSibling: whatsappPanel.nextSibling },
+        { element: importPanel, parent: importPanel.parentNode, nextSibling: importPanel.nextSibling }
       ];
 
       const DUTY_DAY_START_HOUR = 6;
@@ -559,9 +595,11 @@
         userManagementPanel.classList.toggle("hidden", !admin);
         auditLogPanel.classList.toggle("hidden", !admin);
         whatsappPanel.classList.toggle("hidden", !admin);
+        importPanel.classList.toggle("hidden", !admin);
         userManagementPanel.hidden = !admin;
         auditLogPanel.hidden = !admin;
         whatsappPanel.hidden = !admin;
+        importPanel.hidden = !admin;
         exportVisible.classList.toggle("hidden", !admin);
         exportCurrentDate.classList.toggle("hidden", !admin);
         exportCurrentMonth.classList.toggle("hidden", !admin);
@@ -1028,6 +1066,36 @@
         return payload;
       }
 
+      async function importRecordsCsv(csv) {
+        const response = await apiFetch("/api/admin/import-records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csv })
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "Record import failed");
+        return payload;
+      }
+
+      async function importUsersCsv(csv) {
+        const response = await apiFetch("/api/admin/import-users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csv })
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "User import failed");
+        return payload;
+      }
+
+      function bindFileInput(input, target) {
+        input.addEventListener("change", async () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          target.value = await file.text();
+        });
+      }
+
       async function deleteRecord(id) {
         const response = await apiFetch(`/api/record/${id}`, { method: "DELETE" });
         if (!response.ok) throw new Error("Delete failed");
@@ -1309,6 +1377,8 @@
       });
 
       cancelWhatsappEditButton.addEventListener("click", resetWhatsappForm);
+      bindFileInput(recordImportFile, recordImportText);
+      bindFileInput(userImportFile, userImportText);
       whatsappTestButton.addEventListener("click", async () => {
         try {
           const recipientId = editingWhatsappId || (whatsappRecipients[0] && whatsappRecipients[0].id);
@@ -1322,6 +1392,39 @@
         } catch (error) {
           await loadWhatsappStatus();
           alert(`Test send failed: ${error.message}`);
+        }
+      });
+
+      importRecordsButton.addEventListener("click", async () => {
+        try {
+          if (!recordImportText.value.trim()) {
+            alert("Paste record CSV content or choose a CSV file first.");
+            return;
+          }
+          const payload = await importRecordsCsv(recordImportText.value);
+          await loadRecords();
+          await loadAuditLog();
+          refreshView();
+          importStatus.textContent = `Imported ${payload.imported} records into the live app.`;
+        } catch (error) {
+          importStatus.textContent = `Record import failed: ${error.message}`;
+          alert(importStatus.textContent);
+        }
+      });
+
+      importUsersButton.addEventListener("click", async () => {
+        try {
+          if (!userImportText.value.trim()) {
+            alert("Paste user CSV content or choose a CSV file first.");
+            return;
+          }
+          const payload = await importUsersCsv(userImportText.value);
+          await loadUsers();
+          await loadAuditLog();
+          importStatus.textContent = `Imported ${payload.imported} users into the live app.`;
+        } catch (error) {
+          importStatus.textContent = `User import failed: ${error.message}`;
+          alert(importStatus.textContent);
         }
       });
 

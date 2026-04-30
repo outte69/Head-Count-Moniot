@@ -3,6 +3,7 @@
 
 require "date"
 require "json"
+require "csv"
 require "net/http"
 require "securerandom"
 require "time"
@@ -253,6 +254,20 @@ module VisitorIslandMonitor
       if path == "/api/admin/export"
         require_admin!(current_user)
         return export_records(body) if method == "POST"
+
+        raise Error.new("Method not allowed", status: 405)
+      end
+
+      if path == "/api/admin/import-records"
+        require_admin!(current_user)
+        return import_records(body, current_user) if method == "POST"
+
+        raise Error.new("Method not allowed", status: 405)
+      end
+
+      if path == "/api/admin/import-users"
+        require_admin!(current_user)
+        return import_users(body, current_user) if method == "POST"
 
         raise Error.new("Method not allowed", status: 405)
       end
@@ -853,6 +868,118 @@ module VisitorIslandMonitor
       })
     end
 
+    def import_records(body, current_user)
+      payload = parse_json_body(body)
+      csv_text = payload["csv"].to_s
+      raise Error.new("Record CSV content is required", status: 400) if csv_text.strip.empty?
+
+      rows = CSV.parse(csv_text)
+      header_index = rows.index { |row| row[0] == "Date" && row[1] == "Time" && row[2] == "Movement" }
+      raise Error.new("Could not find the record header row in the CSV file", status: 400) unless header_index
+
+      data_rows = rows[(header_index + 1)..].to_a.reject { |row| row.compact.map(&:to_s).all?(&:empty?) }
+      imported = data_rows.map do |row|
+        normalize_record(
+          {
+            "date" => iso_from_display_date(row[0]),
+            "time" => row[1],
+            "movement" => row[2],
+            "section" => row[3],
+            "boat" => row[4],
+            "visitors" => row[5],
+            "staffs" => row[6],
+            "guests" => row[7],
+            "eventVisitors" => row[8],
+            "contractors" => row[9],
+            "yachtGuests" => row[10],
+            "fnf" => row[11],
+            "serviceJetty" => row[12],
+            "remarks" => row[13],
+            "user" => row[14].to_s.strip.empty? ? current_user["username"] : row[14]
+          }
+        )
+      end
+
+      records = @store.read_records
+      imported.each do |record|
+        duplicate = records.find do |existing|
+          existing["date"] == record["date"] &&
+            existing["time"] == record["time"] &&
+            existing["movement"] == record["movement"] &&
+            existing["section"] == record["section"] &&
+            existing["boat"] == record["boat"] &&
+            existing["user"] == record["user"]
+        end
+        if duplicate
+          record["id"] = duplicate["id"]
+          records[records.index(duplicate)] = record
+        else
+          records << record
+        end
+      end
+      @store.write_records(records)
+      log_event(
+        event_type: "records_imported",
+        actor: current_user["username"].to_s,
+        target_type: "records",
+        target_id: imported.length.to_s,
+        details: { "count" => imported.length }
+      )
+      json_response(200, { imported: imported.length, totalRecords: records.length })
+    end
+
+    def import_users(body, current_user)
+      payload = parse_json_body(body)
+      csv_text = payload["csv"].to_s
+      raise Error.new("User CSV content is required", status: 400) if csv_text.strip.empty?
+
+      rows = CSV.parse(csv_text)
+      rows = rows.reject { |row| row.compact.map(&:to_s).all?(&:empty?) }
+      header = rows.first || []
+      start_index =
+        if header[0].to_s.casecmp("username").zero? || header[0].to_s.casecmp("usernames").zero?
+          1
+        else
+          0
+        end
+
+      imported_users = rows[start_index..].to_a.filter_map do |row|
+        username = row[0].to_s.strip
+        password = row[1].to_s.strip
+        next if username.empty? || password.empty?
+
+        salt = SecureRandom.hex(16)
+        {
+          "username" => username,
+          "role" => "user",
+          "passwordSalt" => salt,
+          "passwordHash" => UserStore.password_hash(password, salt),
+          "createdAt" => Time.now.utc.iso8601
+        }
+      end
+
+      users = @user_store.read_users
+      imported_users.each do |incoming|
+        existing = users.find { |user| user["username"].to_s.casecmp?(incoming["username"]) }
+        if existing
+          incoming["role"] = existing["role"] == "admin" ? "admin" : "user"
+          incoming["createdAt"] = existing["createdAt"] || incoming["createdAt"]
+          users[users.index(existing)] = incoming
+        else
+          users << incoming
+        end
+      end
+      @user_store.write_users(users)
+      log_event(
+        event_type: "users_imported",
+        actor: current_user["username"].to_s,
+        target_type: "users",
+        target_id: imported_users.length.to_s,
+        details: { "count" => imported_users.length }
+      )
+      json_response(200, { imported: imported_users.length, totalUsers: users.length })
+    end
+
     def backup_export(body)
       payload = parse_json_body(body)
       records = sorted_records
@@ -1176,6 +1303,16 @@ module VisitorIslandMonitor
 
     def csv_cell(value)
       "\"#{value.to_s.gsub('"', '""')}\""
+    end
+
+    def iso_from_display_date(value)
+      text = value.to_s.strip
+      return text if text.match?(/^\d{4}-\d{2}-\d{2}$/)
+
+      parts = text.split(".")
+      return text unless parts.length == 3
+
+      [parts[2], parts[1], parts[0]].join("-")
     end
 
     def session_cookie(token)
