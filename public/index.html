@@ -251,7 +251,7 @@
             <div class="form-actions">
               <button type="submit" id="save-button">Save Record</button>
               <button type="button" class="secondary" id="reset-form">Clear Form</button>
-              <p class="helper-note">Press Enter to save after the required fields are completed. Duty day runs from 06:00 to the next day 05:59, and entries before 06:00 save under the previous duty date.</p>
+              <p class="helper-note">Use the Save Record button after the required fields are completed. Duty day runs from 06:00 to the next day 05:59, and entries before 06:00 save under the previous duty date.</p>
             </div>
           </form>
         </section>
@@ -1205,13 +1205,6 @@
           refreshView();
         } catch (error) {
           alert(`Save failed: ${error.message}`);
-        }
-      });
-
-      entryForm.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" && event.target.tagName !== "TEXTAREA") {
-          event.preventDefault();
-          entryForm.requestSubmit();
         }
       });
 
