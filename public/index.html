@@ -1044,6 +1044,7 @@
         const record = records.find((item) => item.id === id);
         if (!record) return;
         editingId = id;
+        setActiveView("entry");
         formTitle.textContent = "Edit Record";
         saveButton.textContent = "Update Record";
         fields.date.value = operationalDate(record.date, record.time) || "";
