@@ -1352,7 +1352,7 @@ module VisitorIslandMonitor
       raise Error.new("Missing required fields: #{missing.join(', ')}", status: 400) if missing.any?
 
       normalized_time = normalize_time(payload["time"])
-      normalized_date = operational_date(payload["date"].to_s, normalized_time)
+      normalized_date = Date.iso8601(payload["date"].to_s).iso8601
 
       {
         "id" => existing_id || payload["id"] || SecureRandom.uuid,

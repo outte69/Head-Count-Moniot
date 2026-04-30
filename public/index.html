@@ -648,7 +648,7 @@
           const dateOk = filterDate.value === "all" || dutyDate === filterDate.value;
           const sectionOk = filterSection.value === "all" || record.section === filterSection.value;
           const movementOk = filterMovement.value === "all" || record.movement === filterMovement.value;
-          const textOk = !query || [toDisplayDate(dutyDate), record.time, record.movement, record.section, record.boat, record.remarks, record.user].join(" ").toLowerCase().includes(query);
+          const textOk = !query || [toDisplayDate(record.date), toDisplayDate(dutyDate), record.time, record.movement, record.section, record.boat, record.remarks, record.user].join(" ").toLowerCase().includes(query);
           return monthOk && dateOk && sectionOk && movementOk && textOk;
         });
       }
@@ -782,7 +782,7 @@
         }
         recordsBody.innerHTML = visible.map((record) => `
           <tr>
-            <td>${toDisplayDate(operationalDate(record.date, record.time))}</td>
+            <td>${toDisplayDate(record.date)}</td>
             <td>${record.time || ""}</td>
             <td><span class="pill ${record.movement}">${record.movement}</span></td>
             <td>${record.section || ""}</td>
@@ -933,7 +933,7 @@
         const normalizedTime = normalizeTime(fields.time.value);
         return {
           id: editingId,
-          date: operationalDate(fields.date.value, normalizedTime),
+          date: fields.date.value,
           time: normalizedTime,
           movement: fields.movement.value,
           section: fields.section.value.trim(),
@@ -1115,7 +1115,7 @@
         setActiveView("entry");
         formTitle.textContent = "Edit Record";
         saveButton.textContent = "Update Record";
-        fields.date.value = operationalDate(record.date, record.time) || "";
+        fields.date.value = record.date || "";
         fields.time.value = record.time || "";
         fields.movement.value = record.movement || "arrival";
         fields.section.value = record.section || "";
