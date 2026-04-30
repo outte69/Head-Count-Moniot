@@ -229,14 +229,14 @@
             <div class="form-section">
               <p class="form-section-title">Count Entry</p>
               <div class="form-grid">
-                <label><span>Visitors</span><input type="number" min="0" id="entry-visitors" value="0" required /></label>
-                <label><span>Staffs</span><input type="number" min="0" id="entry-staffs" value="0" required /></label>
-                <label><span>Guests</span><input type="number" min="0" id="entry-guests" value="0" required /></label>
-                <label><span>Event Visitors</span><input type="number" min="0" id="entry-event-visitors" value="0" required /></label>
-                <label><span>Contractors</span><input type="number" min="0" id="entry-contractors" value="0" required /></label>
-                <label><span>Yacht Guests</span><input type="number" min="0" id="entry-yacht-guests" value="0" required /></label>
-                <label><span>F&amp;F</span><input type="number" min="0" id="entry-fnf" value="0" required /></label>
-                <label><span>Service Jetty Visitors</span><input type="number" min="0" id="entry-service-jetty" value="0" /></label>
+                <label><span>Visitors</span><input type="number" min="0" id="entry-visitors" required /></label>
+                <label><span>Staffs</span><input type="number" min="0" id="entry-staffs" required /></label>
+                <label><span>Guests</span><input type="number" min="0" id="entry-guests" required /></label>
+                <label><span>Event Visitors</span><input type="number" min="0" id="entry-event-visitors" required /></label>
+                <label><span>Contractors</span><input type="number" min="0" id="entry-contractors" required /></label>
+                <label><span>Yacht Guests</span><input type="number" min="0" id="entry-yacht-guests" required /></label>
+                <label><span>F&amp;F</span><input type="number" min="0" id="entry-fnf" required /></label>
+                <label><span>Service Jetty Visitors</span><input type="number" min="0" id="entry-service-jetty" /></label>
                 <label><span>Saved By</span><input id="entry-user" readonly required /></label>
               </div>
             </div>
@@ -862,14 +862,14 @@
         saveButton.textContent = "Save Record";
         entryForm.reset();
         fields.date.value = todayIsoDate();
-        fields.visitors.value = 0;
-        fields.staffs.value = 0;
-        fields.guests.value = 0;
-        fields.eventVisitors.value = 0;
-        fields.contractors.value = 0;
-        fields.yachtGuests.value = 0;
-        fields.fnf.value = 0;
-        fields.serviceJetty.value = 0;
+        fields.visitors.value = "";
+        fields.staffs.value = "";
+        fields.guests.value = "";
+        fields.eventVisitors.value = "";
+        fields.contractors.value = "";
+        fields.yachtGuests.value = "";
+        fields.fnf.value = "";
+        fields.serviceJetty.value = "";
         fields.user.value = currentUser ? currentUser.username : "";
       }
 
