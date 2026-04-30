@@ -966,16 +966,11 @@ module VisitorIslandMonitor
     end
 
     def operational_today
-      now = Time.now
-      now -= 86_400 if now.hour < 6
-      now.strftime("%Y-%m-%d")
+      Time.now.strftime("%Y-%m-%d")
     end
 
     def operational_date(iso_date, time_value)
-      date = Date.iso8601(iso_date.to_s)
-      hour = normalize_time(time_value).split(":").first.to_i
-      date -= 1 if hour < 6
-      date.iso8601
+      Date.iso8601(iso_date.to_s).iso8601
     rescue Date::Error
       iso_date.to_s
     end

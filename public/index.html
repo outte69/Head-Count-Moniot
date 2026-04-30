@@ -251,7 +251,7 @@
             <div class="form-actions">
               <button type="submit" id="save-button">Save Record</button>
               <button type="button" class="secondary" id="reset-form">Clear Form</button>
-              <p class="helper-note">Use the Save Record button after the required fields are completed. Duty day runs from 06:00 to the next day 05:59, and entries before 06:00 save under the previous duty date.</p>
+              <p class="helper-note">Use the Save Record button after the required fields are completed. Entries keep the same selected date, including trips entered after 00:00.</p>
             </div>
           </form>
         </section>
@@ -477,7 +477,6 @@
         { element: whatsappPanel, parent: whatsappPanel.parentNode, nextSibling: whatsappPanel.nextSibling }
       ];
 
-      const DUTY_DAY_START_HOUR = 6;
       const parseIsoDate = (isoDate) => {
         if (!isoDate) return null;
         const [year, month, day] = String(isoDate).split("-").map(Number);
@@ -497,9 +496,7 @@
         return formatIsoDate(date);
       };
       const todayIsoDate = () => {
-        const now = new Date();
-        if (now.getHours() < DUTY_DAY_START_HOUR) now.setDate(now.getDate() - 1);
-        return formatIsoDate(now);
+        return formatIsoDate(new Date());
       };
       const monthKey = (isoDate) => isoDate ? isoDate.slice(0, 7) : "";
       const monthLabel = (yyyyMm) => {
@@ -514,10 +511,7 @@
         return match ? `${String(match[1]).padStart(2, "0")}:${match[2]}` : "";
       };
       const operationalDate = (isoDate, timeValue) => {
-        const normalizedTime = normalizeTime(timeValue);
-        if (!isoDate || !normalizedTime) return isoDate || "";
-        const hour = Number(normalizedTime.split(":")[0]);
-        return hour < DUTY_DAY_START_HOUR ? shiftIsoDate(isoDate, -1) : isoDate;
+        return isoDate || "";
       };
       const summaryRows = (entries) => entries.map(([label, value]) => `<div class="summary-row"><span>${label}</span><strong>${value}</strong></div>`).join("");
       const isAdmin = () => currentUser && currentUser.role === "admin";
